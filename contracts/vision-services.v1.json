@@ -1,0 +1,247 @@
+{
+  "$comment": "SPDX-FileCopyrightText: 2026 maninblack; SPDX-License-Identifier: MIT; generated wire-only projection, not live mutation authority",
+  "bounds": {
+    "contextBytes": 4096,
+    "jpegBytes": 4194304,
+    "pairMaximumNs": 120000000,
+    "pairMinimumNs": 80000000,
+    "requestBytes": 4096,
+    "resultBytes": 65536,
+    "sensorWorldDisagreementNs": 75000000,
+    "temporalResetGapNs": 1000000000
+  },
+  "dtos": {
+    "assessment": {
+      "fields": [
+        "schemaVersion",
+        "kind",
+        "binding",
+        "frames",
+        "producer",
+        "input",
+        "state",
+        "reason",
+        "deltaSimulationNs",
+        "lead",
+        "path",
+        "plan",
+        "timingsMs"
+      ],
+      "inputFields": [
+        "epoch",
+        "sequence",
+        "serviceVersion",
+        "modelProfile",
+        "preprocessingProfile"
+      ],
+      "kind": "assessment",
+      "leadFields": [
+        "valid",
+        "present",
+        "distanceMetres",
+        "relativeSpeedMps",
+        "distanceStddevMetres"
+      ],
+      "maximumPathPoints": 64,
+      "maximumPlanPoints": 64,
+      "pathFields": [
+        "valid",
+        "points",
+        "crossTrackMetres",
+        "yawRadians",
+        "curvaturePerMetre"
+      ],
+      "planFields": [
+        "valid",
+        "accelerationMps2",
+        "steeringRadians"
+      ],
+      "shadowOnly": true,
+      "states": [
+        "WARMING",
+        "AVAILABLE",
+        "UNAVAILABLE",
+        "INCOMPATIBLE"
+      ]
+    },
+    "common": {
+      "bindingFields": [
+        "componentEpoch",
+        "sourceId",
+        "sourceEpoch",
+        "cameraId",
+        "calibrationId"
+      ],
+      "finiteNumbersOnly": true,
+      "frameFields": [
+        "frame",
+        "simulationTimeNs",
+        "sensorSimulationTimeNs",
+        "sha256"
+      ],
+      "producerFields": [
+        "epoch",
+        "sequence",
+        "serviceVersion"
+      ],
+      "schemaVersion": 1,
+      "unknownFields": "reject"
+    },
+    "context": {
+      "dynamicsFields": [
+        "available",
+        "speedMps",
+        "simulationTimeNs"
+      ],
+      "fields": [
+        "schemaVersion",
+        "kind",
+        "binding",
+        "frame",
+        "dynamics",
+        "vehicleProfile"
+      ],
+      "groundTruthModelInput": false,
+      "kind": "context",
+      "missing": "available=false with nullable values, never zero/default/fabricated timestamp",
+      "vehicleProfileFields": [
+        "id",
+        "available",
+        "frontAxleToCogM",
+        "speedLimitMps"
+      ]
+    },
+    "perception": {
+      "classProbabilities": 4,
+      "detectionFields": [
+        "box",
+        "score",
+        "classId",
+        "probabilities"
+      ],
+      "detections": 128,
+      "fields": [
+        "schemaVersion",
+        "kind",
+        "binding",
+        "frames",
+        "producer",
+        "modelProfile",
+        "preprocessingProfile",
+        "models",
+        "timingsMs"
+      ],
+      "kind": "perception",
+      "modelProfile": "vision-pilot-fp32-v1",
+      "models": {
+        "autodrive": [
+          "valid",
+          "distanceNormalized",
+          "curvatureRaw",
+          "presenceProbability"
+        ],
+        "autospeed": [
+          "valid",
+          "detections"
+        ],
+        "autosteer": [
+          "valid",
+          "xp",
+          "confidence"
+        ]
+      },
+      "preprocessingProfile": "carla-forward-720p-fov50-v1",
+      "waypoints": 64
+    }
+  },
+  "exchange": {
+    "applicationRoot": "/run/aosedge/vision",
+    "framing": "4-byte unsigned network-order length followed by duplicate-free strict UTF-8 JSON; no nonfinite constants, trailing data or extra fields",
+    "latestAssessmentResults": 1,
+    "latestPerceptionResults": 1,
+    "localRetentionSeconds": 1,
+    "maximumContextRecords": 128,
+    "mountOptions": [
+      "bind",
+      "ro",
+      "nosuid",
+      "nodev",
+      "noexec"
+    ],
+    "owner": "Internal nonroot adapter in Camera Access OEM package, not another application or lifecycle owner",
+    "platformRoot": "/run/aos-vision-exchange",
+    "producerAuthority": "Native resource projection/group plus kernel DAC/SELinux and actual nonroot peer, never a claimed JSON role or credential issued by the broker",
+    "requestDeadlineSeconds": 2,
+    "roles": {
+      "vision-assessment-publish": {
+        "directory": "assessment-publish",
+        "group": "aos-vision-assessment-publish",
+        "operations": [
+          "status",
+          "publish"
+        ],
+        "sharedCount": 1
+      },
+      "vision-context-read": {
+        "directory": "context-read",
+        "group": "aos-vision-context-read",
+        "operations": [
+          "status",
+          "context"
+        ],
+        "sharedCount": 1
+      },
+      "vision-perception-publish": {
+        "directory": "perception-publish",
+        "group": "aos-vision-perception-publish",
+        "operations": [
+          "status",
+          "publish"
+        ],
+        "sharedCount": 1
+      },
+      "vision-perception-read": {
+        "directory": "perception-read",
+        "group": "aos-vision-perception-read",
+        "operations": [
+          "status",
+          "latest"
+        ],
+        "sharedCount": 1
+      }
+    },
+    "socketFile": "exchange.sock"
+  },
+  "kind": "vision-native-services-contract",
+  "schemaVersion": 1,
+  "temporal": {
+    "firstAfterReset": "WARMING with no valid temporal estimates or plan",
+    "fusionDelta": "Actual positive simulation-time difference between processed current frames, not the 80-120 ms input-pair interval",
+    "noTarget": "present=false, distance/speed nullable; upstream 150-m sentinel is not a detected object",
+    "plannerCycleDelta": "Actual inter-result elapsed time; do not reuse the upstream global horizon step",
+    "plannerHorizonStepSeconds": 0.05,
+    "reset": [
+      "source",
+      "sourceEpoch",
+      "componentEpoch",
+      "calibration",
+      "producerEpoch",
+      "discontinuity",
+      "timeRegression",
+      "gapOverOneSimulationSecond"
+    ]
+  },
+  "upstream": {
+    "models": {
+      "autodrive_fp32.onnx": "196a82289ba7d96f574cc4dfa8815dadb9f104397c7c2bec7c98333e5ee8762d",
+      "autospeed_fp32.onnx": "adff7dd9fa9c2d306d9228a87edcf2ae256edbdc9e4b9541fd471880aa5c1451",
+      "autosteer_fp32.onnx": "770d26f431467bbcc7fe3e794411cac36d8dfbd1658e4eb4a37d48342db7cbf6"
+    },
+    "parallelSessions": 3,
+    "precision": "FP32",
+    "provider": "CPUExecutionProvider",
+    "repository": "https://github.com/autowarefoundation/vision_pilot",
+    "revision": "e7e5c614832f175f1f9f10a0d0c0df2559ff2c38",
+    "threadsPerSession": 1
+  }
+}

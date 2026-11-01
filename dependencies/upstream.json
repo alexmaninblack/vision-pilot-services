@@ -1,0 +1,140 @@
+{
+  "schemaVersion": 1,
+  "repository": "https://github.com/autowarefoundation/vision_pilot",
+  "revision": "e7e5c614832f175f1f9f10a0d0c0df2559ff2c38",
+  "license": "Apache-2.0",
+  "importedFiles": [
+    {
+      "upstreamPath": "LICENSE",
+      "upstreamSha256": "43070e2d4e532684de521b885f385d0841030efa2b1a20bafb76133a5e1379c1",
+      "path": "third_party/vision_pilot/LICENSE",
+      "sha256": "43070e2d4e532684de521b885f385d0841030efa2b1a20bafb76133a5e1379c1",
+      "modifications": []
+    },
+    {
+      "upstreamPath": "VisionPilot/modules/common/include/common/types.hpp",
+      "upstreamSha256": "fd73548fd543ab7f6af4d47e1e1d0a24d639c5d2dd8c4ebf032b803859816138",
+      "path": "third_party/vision_pilot/VisionPilot/modules/common/include/common/types.hpp",
+      "sha256": "fd73548fd543ab7f6af4d47e1e1d0a24d639c5d2dd8c4ebf032b803859816138",
+      "modifications": []
+    },
+    {
+      "upstreamPath": "VisionPilot/modules/models/include/models/auto_drive.hpp",
+      "upstreamSha256": "89eb26ba953b7adb1b4858aa47c2b8af41da7addb351e5a814d6b2de44791293",
+      "path": "third_party/vision_pilot/VisionPilot/modules/models/include/models/auto_drive.hpp",
+      "sha256": "0b993ebe1eca36112ff5425accd429f4f646703115a95c781eb42a418a0d5ade",
+      "modifications": [
+        "Retain raw output types only; omit inference/ORT class dependency"
+      ]
+    },
+    {
+      "upstreamPath": "VisionPilot/modules/models/include/models/auto_steer.hpp",
+      "upstreamSha256": "2204b7718162735703e5122780f503cbc67ce8bed61fe50891753cdc34922422",
+      "path": "third_party/vision_pilot/VisionPilot/modules/models/include/models/auto_steer.hpp",
+      "sha256": "47cb4ceb0d0b9a9dccc0a9082784f60bfc422ace949906e81c3906bd310e65b2",
+      "modifications": [
+        "Retain raw output types only; omit inference/ORT class dependency"
+      ]
+    },
+    {
+      "upstreamPath": "VisionPilot/modules/models/include/models/auto_speed.hpp",
+      "upstreamSha256": "74e075f74d304cf6b46a1b7463e0cd4f86e330fdebc71f9d5d4a7e72bb6647be",
+      "path": "third_party/vision_pilot/VisionPilot/modules/models/include/models/auto_speed.hpp",
+      "sha256": "ad1124e3ae2a05c2feb0a26615debf5f1cfa503b4e53721a789a78c374e4ac89",
+      "modifications": [
+        "Retain raw output types only; omit inference/ORT class dependency"
+      ]
+    },
+    {
+      "upstreamPath": "VisionPilot/modules/safety_guardian/fusion/include/fusion/lateral_fusion.hpp",
+      "upstreamSha256": "220a19c0e21b1aa41663b351b18279adeb209e68c41918c829c9e806a5775abe",
+      "path": "third_party/vision_pilot/VisionPilot/modules/safety_guardian/fusion/include/fusion/lateral_fusion.hpp",
+      "sha256": "ac4417c444a88056662e5c99451aba8f059cba829c1056e47d8847d83addf1b1",
+      "modifications": [
+        "Optional nonzero deterministic reference-fixture seed; production default unchanged"
+      ]
+    },
+    {
+      "upstreamPath": "VisionPilot/modules/safety_guardian/fusion/src/lateral_fusion.cpp",
+      "upstreamSha256": "78edc6643e64fb536dcea53daca7a24a4a7aaec6bd23459ac71d711585c0abb0",
+      "path": "third_party/vision_pilot/VisionPilot/modules/safety_guardian/fusion/src/lateral_fusion.cpp",
+      "sha256": "b04fba3c08df1387a326173202bc35fefb9bf6805c163b7375a5773a69a36929",
+      "modifications": [
+        "Honor isolated reference-fixture seed; production default unchanged"
+      ]
+    },
+    {
+      "upstreamPath": "VisionPilot/modules/safety_guardian/fusion/include/fusion/longitudinal_fusion.hpp",
+      "upstreamSha256": "4e1e61b3045adffbaf15e9e1e01169e679839731cc15d86dcbe61cc7fb9621db",
+      "path": "third_party/vision_pilot/VisionPilot/modules/safety_guardian/fusion/include/fusion/longitudinal_fusion.hpp",
+      "sha256": "caa5124c8c7dd2c89dc1f04daaf7fe61521ea9364d029b3a83a1ea0fd158d94a",
+      "modifications": [
+        "Optional nonzero deterministic reference-fixture seed; production default unchanged"
+      ]
+    },
+    {
+      "upstreamPath": "VisionPilot/modules/safety_guardian/fusion/src/longitudinal_fusion.cpp",
+      "upstreamSha256": "1b2b8fec6c9574097ed4a77e9312442c1e2195086bbc65d597160a3364d6e6ac",
+      "path": "third_party/vision_pilot/VisionPilot/modules/safety_guardian/fusion/src/longitudinal_fusion.cpp",
+      "sha256": "5c287f185926738d5afd8d15288a7a4d306d29187957a116538f105c929d5608",
+      "modifications": [
+        "Honor isolated reference-fixture seed; production default unchanged"
+      ]
+    },
+    {
+      "upstreamPath": "VisionPilot/modules/safety_guardian/planning/include/planning/planning.hpp",
+      "upstreamSha256": "83852fd188020c36e5626da44c187e041a4039b6e90e6f05a4fcde2b0087e64e",
+      "path": "third_party/vision_pilot/VisionPilot/modules/safety_guardian/planning/include/planning/planning.hpp",
+      "sha256": "f09989eca986085fa53fabc96d414094c039a541b30a08df5f0a67fc3f662bea",
+      "modifications": [
+        "Require actual processing-cycle elapsed time separately from horizon step"
+      ]
+    },
+    {
+      "upstreamPath": "VisionPilot/modules/safety_guardian/planning/src/planning.cpp",
+      "upstreamSha256": "0d514d9389ff37673ee8c94626a44d65b3b597fc718bc16669f41f9197e514a1",
+      "path": "third_party/vision_pilot/VisionPilot/modules/safety_guardian/planning/src/planning.cpp",
+      "sha256": "0c9f001b79349648099285baae83a5086e3dcc848664416a6199075aad57eb33",
+      "modifications": [
+        "Use explicit processing elapsed time only for inter-cycle displacement; preserve prediction horizon dt"
+      ]
+    },
+    {
+      "upstreamPath": "VisionPilot/modules/safety_guardian/planning/include/planning/lateral_planning.hpp",
+      "upstreamSha256": "ae325f29b7b87200c9f09af3c4ae8ed1c8bf1498582e754407c1b89036995f0b",
+      "path": "third_party/vision_pilot/VisionPilot/modules/safety_guardian/planning/include/planning/lateral_planning.hpp",
+      "sha256": "ae325f29b7b87200c9f09af3c4ae8ed1c8bf1498582e754407c1b89036995f0b",
+      "modifications": []
+    },
+    {
+      "upstreamPath": "VisionPilot/modules/safety_guardian/planning/src/lateral_planning.cpp",
+      "upstreamSha256": "b292d4f1f423701c6d7c7cf9814e2d973bb562616918aebd9085d28a1ebc2273",
+      "path": "third_party/vision_pilot/VisionPilot/modules/safety_guardian/planning/src/lateral_planning.cpp",
+      "sha256": "b292d4f1f423701c6d7c7cf9814e2d973bb562616918aebd9085d28a1ebc2273",
+      "modifications": []
+    },
+    {
+      "upstreamPath": "VisionPilot/modules/safety_guardian/planning/include/planning/longitudinal_planning.hpp",
+      "upstreamSha256": "91dae2403015094e4a69bd0c22bee2696a045ae93093c2fd91a1ce3eaa146f63",
+      "path": "third_party/vision_pilot/VisionPilot/modules/safety_guardian/planning/include/planning/longitudinal_planning.hpp",
+      "sha256": "91dae2403015094e4a69bd0c22bee2696a045ae93093c2fd91a1ce3eaa146f63",
+      "modifications": []
+    },
+    {
+      "upstreamPath": "VisionPilot/modules/safety_guardian/planning/src/longitudinal_planning.cpp",
+      "upstreamSha256": "fdd1e8005478a3536b1b712c47cf219623f103f950b06de7c7b49c572baa2d83",
+      "path": "third_party/vision_pilot/VisionPilot/modules/safety_guardian/planning/src/longitudinal_planning.cpp",
+      "sha256": "fdd1e8005478a3536b1b712c47cf219623f103f950b06de7c7b49c572baa2d83",
+      "modifications": []
+    }
+  ],
+  "excluded": [
+    "engine",
+    "models/weights",
+    "vehicle output",
+    "ROS",
+    "GUI",
+    "CMake automatic fetching"
+  ],
+  "productionAlgorithms": "Original upstream fusion/planning; explicit actual cycle delta; deterministic seed nonzero only in isolated reference fixtures"
+}

@@ -1,0 +1,6 @@
+Vision Pilot Services
+Copyright 2026 maninblack
+
+Contains selected and modified VisionPilot source from Autoware Foundation's
+vision_pilot repository, revision e7e5c614832f175f1f9f10a0d0c0df2559ff2c38,
+under Apache License 2.0. See THIRD_PARTY_NOTICES.md and dependencies/upstream.json.

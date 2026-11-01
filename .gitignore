@@ -1,0 +1,16 @@
+__pycache__/
+*.pyc
+.tmp/
+.local/
+build/
+dist/
+*.onnx
+*.whl
+*.so
+*.dylib
+*.pem
+*.p12
+*.key
+*.img
+*.qcow2
+*.tar.gz

@@ -39,7 +39,7 @@ class PerceptionTests(unittest.TestCase):
         import json,hashlib
         value=f.profile();calibration(value,value['id'])
         with self.assertRaises(Invalid):calibration(value,'foreign')
-        data=json.loads(value['document']);data['modelToVehicle']=[[0.]*3 for _ in range(3)]
+        data=json.loads(value['document']);data['modelViewToVehicle']=[[0.]*3 for _ in range(3)]
         value['document']=json.dumps(data);value['id']=hashlib.sha256(value['document'].encode()).hexdigest()
         with self.assertRaises(Invalid):calibration(value,value['id'])
 

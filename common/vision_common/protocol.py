@@ -164,11 +164,25 @@ def matrix(value):
     require(abs(det)>1e-12,'CALIBRATION_SINGULAR');return value
 
 
+def multiply(a,b):return [[sum(a[i][n]*b[n][k] for n in range(3)) for k in range(3)] for i in range(3)]
+
+
+def resized_mapping(raw_to_model):
+    return multiply(multiply(MODEL_VIEW,raw_to_model),[[1.25,0.,0.],[0.,1.25,80.],[0.,0.,1.]])
+
+
+def same_homography(a,b):
+    left=[v for row in a for v in row];right=[v for row in b for v in row];pivot=max(range(9),key=lambda i:abs(right[i]))
+    require(abs(left[pivot])>1e-12 and abs(right[pivot])>1e-12,'CALIBRATION_MAP_INCOMPATIBLE')
+    scale=left[pivot]/right[pivot]
+    require(max(abs(l-scale*r) for l,r in zip(left,right))<=1e-6*max(1.,max(map(abs,left))),'CALIBRATION_MAP_INCOMPATIBLE')
+
+
 def calibration_profile(envelope,expected_id):
     fields(envelope,('id','document'));require(type(envelope['document']) is str,'CALIBRATION_DOCUMENT_INVALID')
     raw=envelope['document'].encode('utf-8');require(0<len(raw)<=2048,'CALIBRATION_DOCUMENT_LIMIT')
     require(envelope['id']==expected_id==hashlib.sha256(raw).hexdigest(),'CALIBRATION_DIGEST_MISMATCH')
-    value=loads(raw,2048);fields(value,('schemaVersion','profile','scope','camera','modelToVehicle','projection','origin'))
+    value=loads(raw,2048);fields(value,('schemaVersion','profile','scope','camera','modelViewToVehicle','projection','origin'))
     require(type(value['schemaVersion']) is int and value['schemaVersion']==1 and value['profile']==PREPROCESSING_PROFILE
         and value['scope']=='PLANAR_REFERENCE_ONLY','CALIBRATION_PROFILE_INVALID')
     camera=fields(value['camera'],('width','height','horizontalFovDegrees','mountTranslationMetres','mountRotationDegrees'))
@@ -176,7 +190,7 @@ def calibration_profile(envelope,expected_id):
     number(camera['horizontalFovDegrees']);vector(camera['mountTranslationMetres'],3);vector(camera['mountRotationDegrees'],3)
     require(camera['horizontalFovDegrees']==50 and all(abs(a-b)<1e-5 for a,b in zip(camera['mountTranslationMetres'],[1.6,0,1.5]))
         and all(abs(v)<1e-5 for v in camera['mountRotationDegrees']),'CALIBRATION_MOUNT_INCOMPATIBLE')
-    matrix(value['modelToVehicle']);require(value['modelToVehicle']==MODEL_VIEW,'MODEL_VIEW_INCOMPATIBLE')
+    matrix(value['modelViewToVehicle']);require(value['modelViewToVehicle']==MODEL_VIEW,'MODEL_VIEW_INCOMPATIBLE')
     require(value['origin']==CALIBRATION_ORIGIN,'MODEL_VIEW_PROVENANCE_INVALID')
     projection=fields(value['projection'],('algorithm','coordinates','maximumPlaneResidualMetres','maximumNormalAngleDegrees','referenceDistancesMetres'))
     number(projection['maximumPlaneResidualMetres']);number(projection['maximumNormalAngleDegrees']);vector(projection['referenceDistancesMetres'],4)
@@ -186,14 +200,17 @@ def calibration_profile(envelope,expected_id):
 
 
 def calibration_context(value,expected_id,pair=False):
-    fields(value,('available','reason','profile','rawToModel'));label(value['reason'])
+    fields(value,('available','reason','profile','rawToModel','resizedToVehicle'));label(value['reason'])
     if boolean(value['available']):
         require(value['reason']=='CURRENT','CALIBRATION_REASON_INVALID');calibration_profile(value['profile'],expected_id)
         if pair:
-            require(type(value['rawToModel']) is list and len(value['rawToModel'])==2,'CALIBRATION_PAIR_INVALID')
-            for item in value['rawToModel']:matrix(item)
-        else:matrix(value['rawToModel'])
-    else:_nulls(value,('profile','rawToModel'));require(value['reason']!='CURRENT','CALIBRATION_REASON_INVALID')
+            for name in ('rawToModel','resizedToVehicle'):
+                require(type(value[name]) is list and len(value[name])==2,'CALIBRATION_PAIR_INVALID')
+                for item in value[name]:matrix(item)
+            for raw,resized in zip(value['rawToModel'],value['resizedToVehicle']):same_homography(resized,resized_mapping(raw))
+        else:
+            matrix(value['rawToModel']);matrix(value['resizedToVehicle']);same_homography(value['resizedToVehicle'],resized_mapping(value['rawToModel']))
+    else:_nulls(value,('profile','rawToModel','resizedToVehicle'));require(value['reason']!='CURRENT','CALIBRATION_REASON_INVALID')
     return value
 
 

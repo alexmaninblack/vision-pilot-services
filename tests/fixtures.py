@@ -11,7 +11,7 @@ def uid(value):return str(UUID(int=value))
 
 def profile():
     value=dict(schemaVersion=1,profile=p.PREPROCESSING_PROFILE,scope='PLANAR_REFERENCE_ONLY',camera=dict(width=1280,height=720,horizontalFovDegrees=50.,
-        mountTranslationMetres=[1.6,0.,1.5],mountRotationDegrees=[0.,0.,0.]),modelToVehicle=p.MODEL_VIEW,origin=p.CALIBRATION_ORIGIN,
+        mountTranslationMetres=[1.6,0.,1.5],mountRotationDegrees=[0.,0.,0.]),modelViewToVehicle=p.MODEL_VIEW,origin=p.CALIBRATION_ORIGIN,
         projection=dict(algorithm='CARLA_PINHOLE_LOCAL_PLANAR_V1',coordinates='forward-metres-left-positive',maximumPlaneResidualMetres=.02,maximumNormalAngleDegrees=.5,referenceDistancesMetres=[15,30,75,150]))
     document=json.dumps(value,separators=(',',':'));return dict(id=hashlib.sha256(document.encode()).hexdigest(),document=document)
 
@@ -35,7 +35,7 @@ def perception(sequence=1,current=2):
 def context(current=2):return dict(schemaVersion=1,kind='context',binding=binding(),frame=frame(current),
     dynamics=dict(available=True,speedMps=10.,simulationTimeNs=current*100000000),
     vehicleProfile=dict(id='unit-geometry',available=True,frontAxleToCogM=1.2,speedLimitMps=15.),
-    calibration=dict(available=True,reason='CURRENT',profile=profile(),rawToModel=[[1.,0.,0.],[0.,1.,0.],[0.,0.,1.]]))
+    calibration=dict(available=True,reason='CURRENT',profile=profile(),rawToModel=[[1.,0.,0.],[0.,1.,0.],[0.,0.,1.]],resizedToVehicle=p.resized_mapping([[1.,0.,0.],[0.,1.,0.],[0.,0.,1.]])))
 
 
 def assessment():

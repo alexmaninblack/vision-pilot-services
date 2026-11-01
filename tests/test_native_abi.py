@@ -24,5 +24,15 @@ class NativeAbiTests(unittest.TestCase):
         value.path_count=0;value.steering_count=65
         with self.assertRaises(Invalid):decode(value)
 
+    def test_native_update_uses_frame_resized_map_not_training_view(self):
+        from unittest.mock import Mock
+        from vision_assessment.native import Native
+        native=Native.__new__(Native);native.state=1;native.library=Mock()
+        native.library.vision_assessment_step.return_value=1
+        context=f.context()
+        with self.assertRaises(Invalid):native.update(f.perception(),context,.1)
+        encoded=native.library.vision_assessment_step.call_args.args[1]._obj
+        self.assertEqual(list(encoded.homography),[v for row in context['calibration']['resizedToVehicle'] for v in row])
+
 
 if __name__=='__main__':unittest.main()

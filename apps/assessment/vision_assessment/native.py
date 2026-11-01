@@ -78,7 +78,7 @@ class Native:
 
     def update(self,raw,context,seconds):
         p.require(context['calibration']['available'],'CALIBRATION_UNAVAILABLE')
-        profile=p.calibration_profile(context['calibration']['profile'],raw['binding']['calibrationId'])
-        value=encode(raw,context,seconds,profile['modelToVehicle']);output=Output()
+        p.calibration_profile(context['calibration']['profile'],raw['binding']['calibrationId'])
+        value=encode(raw,context,seconds,context['calibration']['resizedToVehicle']);output=Output()
         p.require(self.library.vision_assessment_step(self.state,c.byref(value),c.byref(output))==0,'NATIVE_ALGORITHM_FAILED')
         return decode(output)

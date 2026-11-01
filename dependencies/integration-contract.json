@@ -2,9 +2,9 @@
   "schemaVersion": 1,
   "sourceRepository": "aosedge-sdv-demo",
   "sourcePath": "contracts/vision-vm/services.v1.json",
-  "sourceSha256": "5d5692db461cd7f861f53288a04de2ef6b561b409509a0c1b9d6d16646bfeee7",
+  "sourceSha256": "7c32803452adefd4ec6e00f673ecbcd8ce1f7a533132d7a01453ef2f8cb1b98a",
   "projectionPath": "contracts/vision-services.v1.json",
-  "projectionSha256": "37d7fff3e2de1574380aa43a59cc01c4c66c986c6c6a8b9d6cfc68745329b94e",
+  "projectionSha256": "291c28bfb388a7db46e5f20aa117a1c2450ad4628c41dff707417994091bd38d",
   "sourceLicense": "MIT",
   "scope": "Wire/model/resource projection only; no target identities, Cloud scope or publication authority"
 }

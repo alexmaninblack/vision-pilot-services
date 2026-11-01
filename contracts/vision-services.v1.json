@@ -66,12 +66,13 @@
     },
     "calibration": {
       "acceptedByOperator": "2026-11-01: exact Source-derived camera calibration through existing Perception publish status and Assessment context-read; no new port/resource/app key/control",
-      "assessment": "Same profile and current-frame mapping in context-read; no application file/config/key input",
+      "assessment": "Same profile and current-frame resizedToVehicle in context-read, matching upstream H_resized=H_raw*inverse(top-crop/resize); never substitute the AutoDrive training-view V; no application file/config/key input",
       "contextFields": [
         "available",
         "reason",
         "profile",
-        "rawToModel"
+        "rawToModel",
+        "resizedToVehicle"
       ],
       "fields": [
         "schemaVersion",
@@ -88,7 +89,7 @@
         "profile",
         "scope",
         "camera",
-        "modelToVehicle",
+        "modelViewToVehicle",
         "projection",
         "origin"
       ],

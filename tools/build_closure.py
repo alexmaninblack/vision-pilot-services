@@ -130,7 +130,17 @@ class Closure:
                 self.copy(source,'app/notices/yocto/'+recipe+'/'+path.name,dict(kind='recipe-license',recipe=recipe,path=path.name));copied+=1
             require(copied>0,'RECIPE_NOTICES_EMPTY')
         debs={r['package']:dict(version=r['version']) for r in self.origins.values() if r['kind']=='pinned-builder-deb'}
-        sbom=dict(schemaVersion=1,kind='vision-service-runtime-sbom',yoctoPackages=selected,builderDebs=debs,
+        headers={}
+        if model_lock is None:
+            # Header-only code is incorporated in Assessment's ELF even though
+            # it does not appear in DT_NEEDED. Retain those notices as well.
+            for package,expected in {'libeigen3-dev':'3.4.0-2ubuntu2','libcppad-dev':'2021.00.00.8-1'}.items():
+                version=subprocess.check_output(['dpkg-query','-W','-f=${Version}',package],text=True)
+                require(version==expected,'HEADER_BUILD_DEPENDENCY_CHANGED')
+                notice=Path('/usr/share/doc')/package/'copyright';require(notice.is_symlink() and notice.is_file() and notice.stat().st_size<=4*1024**2,'HEADER_BUILD_NOTICE_ABSENT')
+                self.copy(notice,'app/notices/build-headers/'+package+'.copyright',dict(kind='header-build-copyright',package=package,version=version))
+                headers[package]=dict(version=version,noticeSha256=digest(notice))
+        sbom=dict(schemaVersion=1,kind='vision-service-runtime-sbom',yoctoPackages=selected,builderDebs=debs,headerBuildDependencies=headers,
             serviceSourceLicense='Apache-2.0',modelRuntimeInput=model_lock,
             note='Recipe notices, Debian copyright and wheel/upstream license files are retained; this is not a safety/accuracy qualification')
         self.emit('app/notices/sbom.json',sbom,dict(kind='generated-runtime-sbom'))

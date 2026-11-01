@@ -48,6 +48,9 @@ def main():
         assert lib.vision_assessment_step(state,c.byref(value),c.byref(out))==0
         assert out.lead_valid and out.path_valid and not out.plan_valid
         cases.append('FUSION_WITHOUT_FABRICATED_DYNAMICS_OR_PLAN')
+        value.confidence[0]=-.2;value.confidence[1]=2.
+        assert lib.vision_assessment_step(state,c.byref(value),c.byref(out))==0
+        cases.append('RAW_AUTOSTEER_HEIGHT_MASK_IS_NOT_PROBABILITY')
     finally:lib.vision_assessment_destroy(state)
     # Identical isolated reference seeds must reproduce the same filter path.
     states=[lib.vision_assessment_create(61),lib.vision_assessment_create(61)]

@@ -31,8 +31,9 @@ Weights and reusable ARM64 libraries are external digest-bound build inputs.
 ## Ownership and dependencies
 
 `common/` contains strict shared DTOs; `apps/perception/` owns inference;
-`apps/assessment/` owns upstream fusion/shadow planning. `packaging/aos/`
-contains separate release profiles. `dependencies/` pins the accepted contract
+`apps/assessment/` owns upstream fusion/shadow planning. Separate native release
+profiles and quotas are delivery gates, not an already qualified package here.
+`dependencies/` pins the accepted contract
 and upstream source; `third_party/` preserves selected Apache-2.0 sources.
 There is no ROS, CUDA, GUI, vehicle output adapter or continuous recording.
 

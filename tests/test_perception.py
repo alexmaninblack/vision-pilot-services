@@ -20,6 +20,16 @@ class PerceptionTests(unittest.TestCase):
         value=o.autosteer(positions,[.8]*64);self.assertEqual(value['xp'],positions)
         with self.assertRaises(Invalid):o.autosteer([0.]*63,[1.]*64)
 
+    def test_raw_autosteer_height_mask_is_not_a_sigmoid_probability(self):
+        import fixtures as f
+        from vision_common import protocol as p
+        values=[-.2,2.]+[.8]*62;steer=o.autosteer([.5]*64,values)
+        self.assertEqual(steer['confidence'],values)
+        raw=f.perception();raw['models']['autosteer']=steer;p.perception(raw)
+        for invalid in (float('inf'),float('nan')):
+            values[0]=invalid
+            with self.assertRaises(Invalid):o.autosteer([.5]*64,values)
+
     def test_class_agnostic_nms_matches_upstream_thresholds(self):
         rows=[dict(box=[0.,0.,10.,10.],score=.9,classId=1),dict(box=[1.,1.,11.,11.],score=.8,classId=2),dict(box=[20.,20.,30.,30.],score=.7,classId=0)]
         self.assertEqual([r['classId'] for r in o.nms(rows)],[1,0])

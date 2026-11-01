@@ -38,7 +38,7 @@ class ProtocolTests(unittest.TestCase):
         with self.assertRaises(p.Invalid):p.validate(value)
 
     def test_raw_shapes_counts_and_probability_consistency(self):
-        for mutate in (lambda v:v['models']['autosteer'].update(xp=[0.]*65),lambda v:v['models']['autosteer'].update(confidence=[2.]*64),
+        for mutate in (lambda v:v['models']['autosteer'].update(xp=[0.]*65),lambda v:v['models']['autosteer'].update(confidence=[float('inf')]*64),
                 lambda v:v['models']['autospeed'].update(detections=[{}]*129),lambda v:v.update(modelProfile='int8'),
                 lambda v:v['models']['autodrive'].update(distanceNormalized=1.1)):
             value=f.perception();mutate(value)

@@ -24,7 +24,10 @@ def summary(values):
 
 def identity():
     assert sys.platform=='linux' and os.uname().machine=='aarch64'
-    assert os.getuid()==os.geteuid()==os.getgid()==os.getegid()==5000
+    # Deliberately not an Aos identity/permission proof. Use the existing
+    # unprivileged nobody account for compute-only characterization; the
+    # actual native UID/resources are checked in the later native campaign.
+    assert os.getuid()==os.geteuid()==os.getgid()==os.getegid()==65534
     values=dict(row.split(':',1) for row in Path('/proc/self/status').read_text().splitlines() if ':' in row)
     assert values['NoNewPrivs'].strip()=='1'
     assert all(int(values[k].strip(),16)==0 for k in ('CapEff','CapPrm','CapInh','CapBnd','CapAmb'))

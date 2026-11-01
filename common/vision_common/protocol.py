@@ -114,7 +114,9 @@ def perception(value):
     if boolean(ad['valid']):number(ad['distanceNormalized'],0,1);number(ad['curvatureRaw']);number(ad['presenceProbability'],0,1)
     else:_nulls(ad,('distanceNormalized','curvatureRaw','presenceProbability'))
     steer=fields(models['autosteer'],('valid','xp','confidence'))
-    if boolean(steer['valid']):vector(steer['xp'],64);vector(steer['confidence'],64,0,1)
+    # Upstream forwards the raw AutoSteer h_vector (SiLU height/mask), not a
+    # sigmoid probability. Preserve finite values and the upstream >=.5 mask.
+    if boolean(steer['valid']):vector(steer['xp'],64);vector(steer['confidence'],64)
     else:_nulls(steer,('xp','confidence'))
     speed=fields(models['autospeed'],('valid','detections'))
     if boolean(speed['valid']):

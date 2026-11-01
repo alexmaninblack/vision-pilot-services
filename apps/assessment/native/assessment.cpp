@@ -28,7 +28,8 @@ bool finite_input(const VisionInput& in) {
         || !std::isfinite(in.curvature_raw) || !std::isfinite(in.presence_probability) || in.presence_probability<0 || in.presence_probability>1) return false;
     for (double v:in.homography) if (!std::isfinite(v)) return false;
     for (float v:in.xp) if (!std::isfinite(v)) return false;
-    for (float v:in.confidence) if (!std::isfinite(v) || v<0 || v>1) return false;
+    // Raw h_vector is a finite mask/height, not a bounded probability.
+    for (float v:in.confidence) if (!std::isfinite(v)) return false;
     for (uint32_t n=0;n<in.box_count;++n) {
         const auto& b=in.boxes[n];
         if (!std::isfinite(b.x1)||!std::isfinite(b.x2)||!std::isfinite(b.y1)||!std::isfinite(b.y2)||!std::isfinite(b.score)

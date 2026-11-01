@@ -17,7 +17,7 @@ def autodrive(values):
 
 
 def autosteer(positions,confidence):
-    vector(positions,64);vector(confidence,64,0,1)
+    vector(positions,64);vector(confidence,64)
     return dict(valid=True,xp=list(positions),confidence=list(confidence))
 
 

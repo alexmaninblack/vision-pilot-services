@@ -113,6 +113,7 @@
       "scope": "PLANAR_REFERENCE_ONLY"
     },
     "common": {
+      "autoSteerConfidence": "Raw finite upstream h_vector height/mask, not a 0..1 probability; preserve upstream >=0.5 threshold, no sigmoid or clamp",
       "bindingFields": [
         "componentEpoch",
         "sourceId",

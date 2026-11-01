@@ -52,8 +52,9 @@ class Closure:
         relative=PurePosixPath(relative);require(not relative.is_absolute() and '..' not in relative.parts,'OUTPUT_PATH_INVALID')
         require(source.is_file() and not source.is_symlink(),'SOURCE_NOT_REGULAR')
         target=self.root/relative
-        if target.exists():require(digest(target)==digest(source),'CLOSURE_FILE_CONFLICT');return
-        target.parent.mkdir(parents=True,exist_ok=True);shutil.copyfile(source,target);target.chmod(0o555 if os.access(source,os.X_OK) else 0o444)
+        if target.exists():require(not target.is_symlink() and digest(target)==digest(source),'CLOSURE_FILE_CONFLICT')
+        else:
+            target.parent.mkdir(parents=True,exist_ok=True);shutil.copyfile(source,target);target.chmod(0o555 if os.access(source,os.X_OK) else 0o444)
         self.origins[str(relative)]=origin
         with target.open('rb') as stream:magic=stream.read(20)
         if magic.startswith(b'\x7fELF'):
@@ -74,7 +75,7 @@ class Closure:
             binary=self.queue.pop()
             if binary in self.scanned:continue
             self.scanned.add(binary)
-            needed=subprocess.check_output(['readelf','-d',str(binary)],text=True)
+            needed=subprocess.check_output(['readelf','-d',str(binary)],text=True,stderr=subprocess.PIPE)
             names=re.findall(r'\(NEEDED\).*\[([^\]]+)\]',needed)
             rpaths=re.findall(r'\((?:RPATH|RUNPATH)\).*\[([^\]]+)\]',needed)
             search=[binary.parent]
@@ -83,7 +84,7 @@ class Closure:
                     part=part.replace('${ORIGIN}',str(binary.parent)).replace('$ORIGIN',str(binary.parent))
                     path=Path(part)
                     if path.is_absolute() and path.is_relative_to(self.root):search.append(path)
-            program=subprocess.check_output(['readelf','-l',str(binary)],text=True)
+            program=subprocess.check_output(['readelf','-l',str(binary)],text=True,stderr=subprocess.PIPE)
             interpreters=re.findall(r'Requesting program interpreter: ([^\]]+)\]',program)
             for name in names+interpreters:
                 require(re.fullmatch(r'[A-Za-z0-9_.+/-]+',name) is not None and '..' not in PurePosixPath(name).parts,'ELF_DEPENDENCY_NAME_INVALID')
@@ -105,7 +106,9 @@ class Closure:
                     paths=[Path(row.split(' => ')[1]) for row in rows if ' => ' in row and row.strip().split()[0]==name and 'aarch64' in row.lower()]
                     require(len(set(paths))==1,'TARGET_DEPENDENCY_UNRESOLVED_'+name)
                     source=paths[0].resolve();require(source.is_file(),'TARGET_DEPENDENCY_ABSENT')
-                    packages=subprocess.check_output(['dpkg-query','-S',str(paths[0])],text=True).strip().splitlines()
+                    # Ubuntu usr-merge: ldconfig may spell /lib while dpkg
+                    # owns the same inode under /usr/lib. Query real input.
+                    packages=subprocess.check_output(['dpkg-query','-S',str(source)],text=True).strip().splitlines()
                     require(len(packages)==1,'NATIVE_LIBRARY_PACKAGE_AMBIGUOUS')
                     package=packages[0].split(': ')[0];version=subprocess.check_output(['dpkg-query','-W','-f=${Version}',package],text=True)
                     self.copy(source,'usr/lib/'+name,dict(kind='pinned-builder-deb',package=package,version=version,path=str(source)))
@@ -123,17 +126,20 @@ class Closure:
 def main():
     p=argparse.ArgumentParser()
     for name in ('clean-rootfs','models','assessment-library','output'):p.add_argument('--'+name,type=Path,required=True)
-    p.add_argument('--models-sha256',required=True);p.add_argument('--assessment-sha256',required=True);a=p.parse_args()
+    p.add_argument('--models-sha256',required=True);p.add_argument('--assessment-sha256',required=True)
+    p.add_argument('--resume-owned',action='store_true');a=p.parse_args()
     require(os.uname().sysname=='Linux' and os.uname().machine=='aarch64','SSD_ARM64_BUILDER_REQUIRED')
-    require(not a.output.exists() and a.clean_rootfs.is_dir(),'CLOSURE_OUTPUT_EXISTS_OR_INPUT_INVALID')
+    require(a.clean_rootfs.is_dir() and (not a.output.exists() or (a.resume_owned and a.output.is_dir() and not a.output.is_symlink()
+        and (a.output/'perception/closure.json').is_file() and not (a.output/'result.json').exists())),'CLOSURE_OUTPUT_EXISTS_OR_INPUT_INVALID')
     require((a.clean_rootfs/'etc/aos/version').read_text().strip()=='VERSION="6.1.1-vision-camera.5"','CLEAN_IMAGE_VERSION_REQUIRED')
     require(not list(a.clean_rootfs.rglob('*.p12')) and not list(a.clean_rootfs.rglob('client-key.pem')),'PROVISIONED_IMAGE_FORBIDDEN')
     require(digest(a.models)==a.models_sha256 and digest(a.assessment_library)==a.assessment_sha256,'INPUT_DIGEST_CHANGED')
-    require(a.output.is_absolute() and '..' not in a.output.parts,'OUTPUT_SCOPE_INVALID');a.output.mkdir(mode=0o700,parents=True)
+    require(a.output.is_absolute() and '..' not in a.output.parts,'OUTPUT_SCOPE_INVALID');a.output.mkdir(mode=0o700,parents=True,exist_ok=a.resume_owned)
     root=Path(__file__).resolve().parents[1];outputs={}
     # Explicit archive lock, bounds, links, duplicates and member digest checks
     # precede extraction. Acquisition is never performed here.
-    model_root=a.output/'model-input';model_root.mkdir()
+    model_root=a.output/'model-input';reused=model_root.exists()
+    require(not reused or a.resume_owned,'MODEL_INPUT_EXISTS_RECONCILE');model_root.mkdir(exist_ok=a.resume_owned)
     with tarfile.open(a.models) as archive:
         rows=archive.getmembers();names=[r.name for r in rows]
         require(len(rows)<10000 and len(names)==len(set(names)) and sum(r.size for r in rows)<350*1024**2,'MODEL_ARCHIVE_LIMIT')
@@ -142,12 +148,21 @@ def main():
             require(not relative.is_absolute() and '..' not in relative.parts and relative.parts[0]=='payload' and (row.isfile() or row.isdir()),'MODEL_ARCHIVE_UNSAFE')
             if row.isdir():continue
             destination=model_root/relative;destination.parent.mkdir(parents=True,exist_ok=True)
-            with archive.extractfile(row) as src,destination.open('xb') as dst:shutil.copyfileobj(src,dst)
+            if reused:require(destination.is_file() and not destination.is_symlink() and destination.stat().st_size==row.size,'MODEL_INPUT_CHANGED')
+            else:
+                with archive.extractfile(row) as src,destination.open('xb') as dst:shutil.copyfileobj(src,dst)
     lock=json.loads((model_root/'payload/input-lock.json').read_bytes());require(lock['upstream']=='e7e5c614832f175f1f9f10a0d0c0df2559ff2c38','MODEL_SOURCE_CHANGED')
     for row in lock['files']:
         path=model_root/'payload'/row['path'];require(path.is_file() and path.stat().st_size==row['bytes'] and digest(path)==row['sha256'],'MODEL_MEMBER_CHANGED')
     for service in ('perception','assessment'):
-        destination=a.output/service/'rootfs';destination.mkdir(parents=True);closure=Closure(destination,a.clean_rootfs)
+        destination=a.output/service/'rootfs'
+        if a.resume_owned and (a.output/service/'closure.json').is_file():
+            result=json.loads((a.output/service/'closure.json').read_bytes())
+            require({str(p.relative_to(destination)) for p in destination.rglob('*') if p.is_file()}=={r['path'] for r in result['files']},'COMPLETED_CLOSURE_FILE_SET_CHANGED')
+            for row in result['files']:
+                path=destination/row['path'];require(not path.is_symlink() and path.stat().st_size==row['bytes'] and digest(path)==row['sha256'],'COMPLETED_CLOSURE_CHANGED')
+            outputs[service]={k:v for k,v in result.items() if k!='files'};continue
+        destination.mkdir(parents=True,exist_ok=a.resume_owned);closure=Closure(destination,a.clean_rootfs)
         closure.copy(resolve(a.clean_rootfs,'usr/bin/python3.12'),'usr/bin/python3.12',dict(kind='clean-vision-rootfs',path='usr/bin/python3.12'))
         closure.tree(a.clean_rootfs/'usr/lib/python3.12','usr/lib/python3.12',dict(kind='clean-vision-rootfs',path='usr/lib/python3.12'))
         closure.tree(root/'common','app/common',dict(kind='vision-pilot-services',path='common'))

@@ -30,6 +30,16 @@ def digest(path):
     return h.hexdigest()
 
 
+def package_owner(source,query=subprocess.check_output):
+    """Resolve both usr-merge spellings by exact file identity, not a guess."""
+    rows=query(['dpkg-query','-S','*/'+source.name],text=True).strip().splitlines();owners=set()
+    for row in rows:
+        if ': ' not in row:continue
+        package,raw=row.split(': ',1);path=Path(raw)
+        if path.is_file() and path.resolve()==source:owners.add(package)
+    require(len(owners)==1,'NATIVE_LIBRARY_PACKAGE_AMBIGUOUS');return owners.pop()
+
+
 def resolve(root,relative):
     """Resolve absolute target links relative to the target root, not Builder /."""
     pending=list(PurePosixPath('/'+str(relative).lstrip('/')).parts[1:]);current=root;links=0
@@ -108,9 +118,7 @@ class Closure:
                     source=paths[0].resolve();require(source.is_file(),'TARGET_DEPENDENCY_ABSENT')
                     # Ubuntu usr-merge: ldconfig may spell /lib while dpkg
                     # owns the same inode under /usr/lib. Query real input.
-                    packages=subprocess.check_output(['dpkg-query','-S',str(source)],text=True).strip().splitlines()
-                    require(len(packages)==1,'NATIVE_LIBRARY_PACKAGE_AMBIGUOUS')
-                    package=packages[0].split(': ')[0];version=subprocess.check_output(['dpkg-query','-W','-f=${Version}',package],text=True)
+                    package=package_owner(source);version=subprocess.check_output(['dpkg-query','-W','-f=${Version}',package],text=True)
                     self.copy(source,'usr/lib/'+name,dict(kind='pinned-builder-deb',package=package,version=version,path=str(source)))
                     notice=Path('/usr/share/doc')/package.split(':')[0]/'copyright'
                     require(notice.is_file(),'NATIVE_LIBRARY_NOTICE_ABSENT')

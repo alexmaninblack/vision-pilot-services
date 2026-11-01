@@ -29,9 +29,11 @@ class Output(c.Structure):
 def encode(raw,context,seconds,homography):
     p.perception(raw);p.context(context);p.number(seconds,1e-9,1.)
     p.require(raw['binding']==context['binding'] and raw['frames'][-1]==context['frame'],'CONTEXT_CAPTURE_MISMATCH')
-    p.require(all(v['valid'] for v in raw['models'].values()) and context['dynamics']['available'] and context['vehicleProfile']['available'],'ALGORITHM_INPUT_UNAVAILABLE')
-    value=Input();value.abi=1;value.flags=7;value.elapsed_seconds=seconds;value.speed_mps=context['dynamics']['speedMps']
-    value.front_axle_to_cog_m=context['vehicleProfile']['frontAxleToCogM'];value.speed_limit_mps=context['vehicleProfile']['speedLimitMps']
+    p.require(all(v['valid'] for v in raw['models'].values()),'ALGORITHM_INPUT_UNAVAILABLE')
+    value=Input();value.abi=1;value.flags=1;value.elapsed_seconds=seconds
+    if context['dynamics']['available']:value.flags|=2;value.speed_mps=context['dynamics']['speedMps']
+    if context['vehicleProfile']['available']:
+        value.flags|=4;value.front_axle_to_cog_m=context['vehicleProfile']['frontAxleToCogM'];value.speed_limit_mps=context['vehicleProfile']['speedLimitMps']
     value.homography[:]=[v for row in homography for v in row]
     drive=raw['models']['autodrive'];steer=raw['models']['autosteer'];boxes=raw['models']['autospeed']['detections']
     value.distance_normalized=drive['distanceNormalized'];value.curvature_raw=drive['curvatureRaw'];value.presence_probability=drive['presenceProbability']
@@ -41,7 +43,8 @@ def encode(raw,context,seconds,homography):
 
 
 def decode(value):
-    p.require(value.abi==1 and value.path_count<=64 and value.steering_count<=64,'NATIVE_OUTPUT_ABI_INVALID')
+    p.require(value.abi==1 and value.path_count<=64 and value.steering_count<=64
+        and all(getattr(value,k) in (0,1) for k in ('lead_valid','lead_present','path_valid','plan_valid')),'NATIVE_OUTPUT_ABI_INVALID')
     result=absent()
     if value.lead_valid:
         present=bool(value.lead_present)

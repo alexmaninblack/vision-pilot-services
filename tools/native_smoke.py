@@ -44,6 +44,10 @@ def main():
         value.box_count=129;assert lib.vision_assessment_step(state,c.byref(value),c.byref(out))==1;value.box_count=0
         value.elapsed_seconds=0.;assert lib.vision_assessment_step(state,c.byref(value),c.byref(out))==1;value.elapsed_seconds=.3
         assert lib.vision_assessment_step(state,c.byref(value),c.byref(out))==0;cases.append('EXPLICIT_DELTA_AND_BOUNDS')
+        value.flags=1
+        assert lib.vision_assessment_step(state,c.byref(value),c.byref(out))==0
+        assert out.lead_valid and out.path_valid and not out.plan_valid
+        cases.append('FUSION_WITHOUT_FABRICATED_DYNAMICS_OR_PLAN')
     finally:lib.vision_assessment_destroy(state)
     # Identical isolated reference seeds must reproduce the same filter path.
     states=[lib.vision_assessment_create(61),lib.vision_assessment_create(61)]

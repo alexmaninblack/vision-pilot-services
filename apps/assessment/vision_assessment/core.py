@@ -37,7 +37,7 @@ class Assessment:
                 if not matched:self.algorithm.reset();self.recovering=True;raise p.Invalid('CONTEXT_CAPTURE_MISMATCH')
             models_valid=all(value['valid'] for value in raw['models'].values())
             if not models_valid:self.algorithm.reset();self.recovering=True;result['reason']='PERCEPTION_INVALID'
-            elif not matched or not context['dynamics']['available'] or not context['vehicleProfile']['available']:
+            elif not matched:
                 self.algorithm.reset();self.recovering=True;result['reason']='CONTEXT_UNAVAILABLE'
             elif self.recovering:
                 self.algorithm.reset();self.recovering=False;result.update(state='WARMING',reason='INPUT_RECOVERED')
@@ -45,7 +45,12 @@ class Assessment:
                 try:
                     value=self.algorithm.update(raw,context,temporal['deltaSimulationNs']/1e9)
                     p.fields(value,('lead','path','plan'))
+                    if not context['dynamics']['available'] or not context['vehicleProfile']['available']:
+                        # Factual model/fusion outputs remain distinct from a
+                        # plan requiring measured dynamics and geometry.
+                        value=dict(value,plan=absent()['plan'])
                     result.update(state='AVAILABLE',reason='CURRENT',**value)
+                    p.assessment(result)
                 except p.Invalid:
-                    self.algorithm.reset();self.recovering=True;result['reason']='ALGORITHM_INVALID'
+                    self.algorithm.reset();self.recovering=True;result.update(state='UNAVAILABLE',reason='ALGORITHM_INVALID',**absent())
         result['timingsMs']['total']=(self.clock()-began)*1000;p.assessment(result);return result

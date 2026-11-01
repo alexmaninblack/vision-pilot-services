@@ -20,10 +20,10 @@ struct State {
         lateral([&]{visionpilot::fusion::LateralFusion::Config c;c.test_seed=seed;return c;}()){}
 };
 bool finite_input(const VisionInput& in) {
-    if (in.abi!=1 || in.flags!=7 || in.box_count>128 || !(in.elapsed_seconds>0 && in.elapsed_seconds<=1)
-        || !std::isfinite(in.speed_mps) || in.speed_mps<0 || in.speed_mps>120
-        || !std::isfinite(in.front_axle_to_cog_m) || in.front_axle_to_cog_m<.1 || in.front_axle_to_cog_m>10
-        || !std::isfinite(in.speed_limit_mps) || in.speed_limit_mps<=0 || in.speed_limit_mps>120
+    if (in.abi!=1 || (in.flags&1)==0 || (in.flags&~7)!=0 || in.box_count>128 || !(in.elapsed_seconds>0 && in.elapsed_seconds<=1)
+        || ((in.flags&2)!=0 && (!std::isfinite(in.speed_mps) || in.speed_mps<0 || in.speed_mps>120))
+        || ((in.flags&4)!=0 && (!std::isfinite(in.front_axle_to_cog_m) || in.front_axle_to_cog_m<.1 || in.front_axle_to_cog_m>10
+            || !std::isfinite(in.speed_limit_mps) || in.speed_limit_mps<=0 || in.speed_limit_mps>120))
         || !std::isfinite(in.distance_normalized) || in.distance_normalized<0 || in.distance_normalized>1
         || !std::isfinite(in.curvature_raw) || !std::isfinite(in.presence_probability) || in.presence_probability<0 || in.presence_probability>1) return false;
     for (double v:in.homography) if (!std::isfinite(v)) return false;
@@ -80,7 +80,7 @@ extern "C" int vision_assessment_step(void* opaque,const VisionInput* input,Visi
                 output->path[2*i]=x;output->path[2*i+1]=path.path_a*x*x+path.path_b*x+path.path_c;
             }
         }
-        if (output->lead_valid && output->path_valid) {
+        if (in.flags==7 && output->lead_valid && output->path_valid) {
             if (!state.planner || state.geometry!=in.front_axle_to_cog_m || state.speed_limit!=in.speed_limit_mps) {
                 state.planner=std::make_unique<Planner>(in.speed_limit_mps,in.front_axle_to_cog_m);
                 state.geometry=in.front_axle_to_cog_m;state.speed_limit=in.speed_limit_mps;

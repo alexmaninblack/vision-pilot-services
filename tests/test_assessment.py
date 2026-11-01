@@ -32,8 +32,8 @@ class AssessmentTests(unittest.TestCase):
             for name in c[field]:
                 if name!='available':c[field][name]=None
             value=core.process(f.perception(2,3),c)
-            self.assertEqual(value['state'],'UNAVAILABLE');self.assertFalse(value['plan']['valid'])
-        self.algorithm.update.assert_not_called()
+            self.assertEqual(value['state'],'AVAILABLE');self.assertTrue(value['lead']['valid']);self.assertFalse(value['plan']['valid'])
+        self.assertEqual(self.algorithm.update.call_count,2)
 
     def test_wrong_source_or_frame_does_not_reach_algorithm(self):
         self.core.process(f.perception(),None);context=f.context(3);context['binding']['sourceEpoch']=f.uid(88)

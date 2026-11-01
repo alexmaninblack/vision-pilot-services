@@ -1,3 +1,5 @@
+// Derived from VisionPilot e7e5c614832f175f1f9f10a0d0c0df2559ff2c38 (Apache-2.0).
+// Modified for SDV Lab: Reject unsuccessful solver status without altering solver budget, thresholds or algorithm.
 #include <planning/lateral_planning.hpp>
 #include <cppad/cppad.hpp>
 #include <cppad/ipopt/solve.hpp>
@@ -211,6 +213,9 @@ std::vector<double> LateralPlanner::compute_steering(const double L,
         vars_lb, vars_ub,
         con_lb, con_ub,
         fg_eval, solution);
+
+    // A timed-out/unconverged solution is not a valid shadow plan.
+    if (solution.status != CppAD::ipopt::solve_result<Dvector>::success) return {};
 
     std::vector<double> result;
     for (int i = 0; i < (int)N - 1; i++)

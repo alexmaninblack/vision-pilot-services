@@ -18,11 +18,18 @@ for component,names in (('fusion',('lateral_fusion','longitudinal_fusion')),('pl
 
 
 def main():
-    p=argparse.ArgumentParser();p.add_argument('--source',type=Path,required=True);a=p.parse_args()
+    p=argparse.ArgumentParser();p.add_argument('--source',type=Path,required=True);p.add_argument('--refresh-owned',action='store_true');a=p.parse_args()
     assert subprocess.check_output(['git','-C',str(a.source),'rev-parse','HEAD'],text=True).strip()==PIN
     assert not subprocess.check_output(['git','-C',str(a.source),'status','--porcelain'],text=True)
     root=Path(__file__).resolve().parents[1];target=root/'third_party/vision_pilot'
-    assert not target.exists(),'UPSTREAM_IMPORT_EXISTS_RECONCILE';target.mkdir(parents=True)
+    if target.exists():
+        assert a.refresh_owned,'UPSTREAM_IMPORT_EXISTS_RECONCILE'
+        previous=json.loads((root/'dependencies/upstream.json').read_bytes())
+        assert previous['revision']==PIN and {r['upstreamPath'] for r in previous['importedFiles']}==set(PATHS)
+        for row in previous['importedFiles']:
+            assert hashlib.sha256((root/row['path']).read_bytes()).hexdigest()==row['sha256'],'IMPORTED_SOURCE_CHANGED'
+        assert {str(p.relative_to(root)) for p in target.rglob('*') if p.is_file()}=={r['path'] for r in previous['importedFiles']},'UNOWNED_SOURCE_PRESENT'
+    else:target.mkdir(parents=True)
     records=[]
     for name in PATHS:
         raw=subprocess.check_output(['git','-C',str(a.source),'show',PIN+':'+name]);text=raw.decode();changes=[]
@@ -49,6 +56,12 @@ def main():
             assert text.count('rng_(std::random_device{}())')==1
             text=text.replace('rng_(std::random_device{}())','rng_(cfg.test_seed ? cfg.test_seed : std::random_device{}())')
             changes.append('Honor isolated reference-fixture seed; production default unchanged')
+        if name.endswith('/planning/src/lateral_planning.cpp'):
+            marker='    std::vector<double> result;'
+            assert text.count(marker)==1
+            text=text.replace(marker,'    // A timed-out/unconverged solution is not a valid shadow plan.\n'
+                '    if (solution.status != CppAD::ipopt::solve_result<Dvector>::success) return {};\n\n'+marker)
+            changes.append('Reject unsuccessful solver status without altering solver budget, thresholds or algorithm')
         content=text.encode()
         if changes:
             banner='// Derived from VisionPilot '+PIN+' (Apache-2.0).\n// Modified for SDV Lab: '+'; '.join(changes)+'.\n'

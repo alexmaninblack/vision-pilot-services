@@ -111,6 +111,24 @@
         "speedLimitMps"
       ]
     },
+    "gatewayContext": {
+      "bindingFields": [
+        "sourceId",
+        "sourceEpoch",
+        "cameraId",
+        "calibrationId"
+      ],
+      "fields": [
+        "schemaVersion",
+        "kind",
+        "binding",
+        "frame",
+        "dynamics",
+        "vehicleProfile"
+      ],
+      "kind": "gateway-context",
+      "localProjection": "OEM adapter adds only the Camera componentEpoch from Source-owned native selection, never from an application. All remaining binding/frame facts must match authenticated Gateway context."
+    },
     "perception": {
       "classProbabilities": 4,
       "detectionFields": [

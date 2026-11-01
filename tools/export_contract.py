@@ -9,12 +9,17 @@ from pathlib import Path
 
 
 def main():
-    p=argparse.ArgumentParser();p.add_argument('--source',type=Path,required=True);a=p.parse_args()
+    p=argparse.ArgumentParser();p.add_argument('--source',type=Path,required=True);p.add_argument('--refresh-owned',action='store_true');a=p.parse_args()
     raw=a.source.read_bytes();source=json.loads(raw)
     assert source['kind']=='vision-native-services-contract' and source['status']=='ACCEPTED_FOR_IMPLEMENTATION_AND_SAME_VM_VERIFICATION'
     root=Path(__file__).resolve().parents[1];destination=root/'contracts/vision-services.v1.json'
     destination.parent.mkdir(exist_ok=True);(root/'dependencies').mkdir(exist_ok=True)
-    assert not destination.exists() and not (root/'dependencies/integration-contract.json').exists(),'EXPORT_EXISTS_RECONCILE'
+    receipt=root/'dependencies/integration-contract.json'
+    if destination.exists() or receipt.exists():
+        assert a.refresh_owned and destination.is_file() and receipt.is_file(),'EXPORT_EXISTS_RECONCILE'
+        previous=json.loads(receipt.read_bytes())
+        assert previous['projectionPath']==str(destination.relative_to(root))
+        assert hashlib.sha256(destination.read_bytes()).hexdigest()==previous['projectionSha256'],'PROJECTION_CHANGED'
     value={key:source[key] for key in ('schemaVersion','kind','exchange','dtos','bounds','temporal','upstream')}
     value['$comment']='SPDX-FileCopyrightText: 2026 maninblack; SPDX-License-Identifier: MIT; generated wire-only projection, not live mutation authority'
     content=(json.dumps(value,sort_keys=True,indent=2)+'\n').encode();destination.write_bytes(content)

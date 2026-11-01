@@ -110,8 +110,10 @@
       "upstreamPath": "VisionPilot/modules/safety_guardian/planning/src/lateral_planning.cpp",
       "upstreamSha256": "b292d4f1f423701c6d7c7cf9814e2d973bb562616918aebd9085d28a1ebc2273",
       "path": "third_party/vision_pilot/VisionPilot/modules/safety_guardian/planning/src/lateral_planning.cpp",
-      "sha256": "b292d4f1f423701c6d7c7cf9814e2d973bb562616918aebd9085d28a1ebc2273",
-      "modifications": []
+      "sha256": "1be967d529209338b99b514e9e6fc7fa1cb63b0a4a2808f470106bbc6f1d656a",
+      "modifications": [
+        "Reject unsuccessful solver status without altering solver budget, thresholds or algorithm"
+      ]
     },
     {
       "upstreamPath": "VisionPilot/modules/safety_guardian/planning/include/planning/longitudinal_planning.hpp",

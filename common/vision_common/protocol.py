@@ -141,6 +141,15 @@ def context(value):
     return value
 
 
+def gateway_context(value,component_epoch):
+    """Add only the native epoch supplied by the trusted Source projection."""
+    fields(value,('schemaVersion','kind','binding','frame','dynamics','vehicleProfile'))
+    require(type(value['schemaVersion']) is int and value['schemaVersion']==1 and value['kind']=='gateway-context','SCHEMA_INVALID')
+    fields(value['binding'],BINDING[1:]);identity(component_epoch)
+    result=dict(value,kind='context',binding=dict(value['binding'],componentEpoch=component_epoch))
+    return context(result)
+
+
 def assessment(value):
     fields(value,('schemaVersion','kind','binding','frames','producer','input','state','reason','deltaSimulationNs','lead','path','plan','timingsMs'))
     common(value,'assessment');frames(value['frames']);producer(value['producer'])

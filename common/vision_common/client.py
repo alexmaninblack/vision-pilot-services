@@ -32,15 +32,18 @@ class Client:
             connection.settimeout(2);connection.connect(str(self.path));ipc.send(connection,request,deadline,p.MAX_REQUEST)
             if operation=='publish':ipc.send(connection,value,deadline)
             response=ipc.receive(connection,deadline,p.MAX_REQUEST)
-            p.require(type(response) is dict and response.get('schemaVersion')==1,'EXCHANGE_RESPONSE_INVALID')
+            p.fields(response,('schemaVersion','exchangeEpoch','state','reason'))
+            p.require(type(response['schemaVersion']) is int and response['schemaVersion']==1,'EXCHANGE_RESPONSE_INVALID')
+            p.label(response['reason'])
             if response.get('state')=='REJECTED':raise p.Invalid(p.label(response.get('reason')))
             p.identity(response.get('exchangeEpoch'))
             if operation=='status':self.epoch=response['exchangeEpoch']
             else:p.require(self.epoch==response['exchangeEpoch'],'EXCHANGE_EPOCH_CHANGED')
             if response.get('state') in ('RESULT','CONTEXT'):
+                p.require((operation,response['state']) in (('latest','RESULT'),('context','CONTEXT')),'EXCHANGE_STATE_INVALID')
                 message=ipc.receive(connection,deadline,p.MAX_REQUEST if operation=='context' else p.MAX_RESULT);p.validate(message)
                 p.require(message['kind']==('context' if operation=='context' else 'perception'),'EXCHANGE_KIND_INVALID');return message
-            p.require(response.get('state') in ('STATUS','ACCEPTED','UNCHANGED','UNAVAILABLE'),'EXCHANGE_STATE_INVALID')
+            p.require(response['state'] in {'status':('STATUS',),'publish':('ACCEPTED',),'latest':('UNCHANGED','UNAVAILABLE'),'context':('UNAVAILABLE',)}[operation],'EXCHANGE_STATE_INVALID')
             return response
 
 

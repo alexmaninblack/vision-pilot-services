@@ -78,7 +78,54 @@ class Closure:
             if path.is_symlink():
                 # The selected model/runtime tree is already a link-free lock.
                 raise ValueError('RUNTIME_TREE_LINK_FORBIDDEN')
-            if path.is_file():self.copy(path,str(PurePosixPath(relative)/rel.as_posix()),origin)
+            if path.is_file():
+                item=dict(origin)
+                if item['kind']=='clean-vision-rootfs':item['path']=str(PurePosixPath(item['path'])/rel.as_posix())
+                self.copy(path,str(PurePosixPath(relative)/rel.as_posix()),item)
+
+    def emit(self,relative,value,origin):
+        target=self.root/relative;require(not target.exists(),'GENERATED_FILE_EXISTS')
+        target.parent.mkdir(parents=True,exist_ok=True);target.write_text(json.dumps(value,indent=2)+'\n');target.chmod(0o444);self.origins[relative]=origin
+
+    def licenses(self,pkgdata,licenses,model_lock=None):
+        """Use recipe/package ownership, not a synthesized license guess."""
+        require((pkgdata/'runtime').is_dir() and licenses.is_dir(),'BUILD_LICENSE_INPUT_ABSENT')
+        owners={};recipes={}
+        for path in sorted((pkgdata/'runtime').iterdir()):
+            if not path.is_file() or path.is_symlink() or path.stat().st_size>4*1024**2:continue
+            data={}
+            for line in path.read_text().splitlines():
+                key,separator,value=line.partition(': ')
+                if separator and key in ('PN','PV','LICENSE','FILES_INFO'):data[key]=value
+            if 'FILES_INFO' not in data:continue
+            files=json.loads(data['FILES_INFO']);require(type(files) is dict,'PKGDATA_FILES_INVALID')
+            recipes[path.name]=data
+            for filename in files:owners.setdefault(filename,set()).add(path.name)
+        require(owners,'PKGDATA_OWNERS_EMPTY')
+        selected={}
+        for origin in list(self.origins.values()):
+            if origin['kind']!='clean-vision-rootfs':continue
+            name='/'+origin['path'].lstrip('/');aliases={name}
+            if name.startswith('/usr/lib/'):aliases.add(name.removeprefix('/usr'))
+            elif name.startswith('/lib/'):aliases.add('/usr'+name)
+            packages=set().union(*(owners.get(alias,set()) for alias in aliases));require(len(packages)==1,'CLEAN_RUNTIME_PACKAGE_OWNER_AMBIGUOUS_'+name)
+            package=packages.pop();record=recipes[package]
+            require(all(record.get(key) for key in ('PN','PV','LICENSE')) and record['LICENSE']!='CLOSED','CLEAN_RUNTIME_LICENSE_MISSING')
+            selected[package]=dict(recipe=record['PN'],version=record['PV'],license=record['LICENSE'])
+        for recipe in sorted({row['recipe'] for row in selected.values()}):
+            require(re.fullmatch('[A-Za-z0-9_.+-]+',recipe) is not None,'LICENSE_RECIPE_INVALID');directory=licenses/recipe
+            require(directory.is_dir(),'RECIPE_NOTICE_ABSENT_'+recipe)
+            copied=0
+            for path in sorted(directory.iterdir()):
+                if not path.is_file():continue
+                source=path.resolve();require(source.stat().st_size<=4*1024**2,'LICENSE_FILE_LIMIT')
+                self.copy(source,'app/notices/yocto/'+recipe+'/'+path.name,dict(kind='recipe-license',recipe=recipe,path=path.name));copied+=1
+            require(copied>0,'RECIPE_NOTICES_EMPTY')
+        debs={r['package']:dict(version=r['version']) for r in self.origins.values() if r['kind']=='pinned-builder-deb'}
+        sbom=dict(schemaVersion=1,kind='vision-service-runtime-sbom',yoctoPackages=selected,builderDebs=debs,
+            serviceSourceLicense='Apache-2.0',modelRuntimeInput=model_lock,
+            note='Recipe notices, Debian copyright and wheel/upstream license files are retained; this is not a safety/accuracy qualification')
+        self.emit('app/notices/sbom.json',sbom,dict(kind='generated-runtime-sbom'))
 
     def elf_closure(self):
         while self.queue:
@@ -134,6 +181,7 @@ class Closure:
 def main():
     p=argparse.ArgumentParser()
     for name in ('clean-rootfs','models','assessment-library','output'):p.add_argument('--'+name,type=Path,required=True)
+    p.add_argument('--pkgdata-root',type=Path);p.add_argument('--license-root',type=Path)
     p.add_argument('--models-sha256',required=True);p.add_argument('--assessment-sha256',required=True)
     p.add_argument('--resume-owned',action='store_true');a=p.parse_args()
     require(os.uname().sysname=='Linux' and os.uname().machine=='aarch64','SSD_ARM64_BUILDER_REQUIRED')
@@ -182,9 +230,14 @@ def main():
             closure.tree(model_root/'payload/models','app/models',dict(kind='verified-model-runtime',archiveSha256=a.models_sha256))
             closure.copy(model_root/'payload/UPSTREAM-LICENSE','app/notices/VisionPilot-LICENSE',dict(kind='verified-model-runtime',archiveSha256=a.models_sha256))
         else:closure.copy(a.assessment_library,'app/lib/libvision_assessment.so',dict(kind='ssd-native-assessment',sha256=a.assessment_sha256))
-        closure.elf_closure();result=closure.finish();ceiling=512*1024**2 if service=='perception' else 256*1024**2
+        closure.elf_closure()
+        if a.pkgdata_root or a.license_root:
+            require(a.pkgdata_root is not None and a.license_root is not None,'BOTH_LICENSE_INPUTS_REQUIRED')
+            closure.licenses(a.pkgdata_root,a.license_root,dict(archiveSha256=a.models_sha256,upstream=lock['upstream']) if service=='perception' else None)
+        result=closure.finish();ceiling=512*1024**2 if service=='perception' else 256*1024**2
         require(result['bytes']<=ceiling and result['count']<10000,'CLOSURE_PROFILE_OVERFLOW')
-        result.update(service='vision-'+service,version='0.1.0',maximumExtractedBytes=ceiling,status='MEASURED_CLOSURE_NOT_SIGNABLE_WITHOUT_CALIBRATION_QUOTAS_AND_LICENSE_GATE')
+        result.update(service='vision-'+service,version='0.1.0',maximumExtractedBytes=ceiling,licenseNoticesIncluded=bool(a.pkgdata_root),
+            status='MEASURED_CLOSURE_NOT_SIGNABLE_WITHOUT_NATIVE_MEASUREMENTS_AND_DELIVERY_GATES')
         (a.output/service/'closure.json').write_text(json.dumps(result,indent=2)+'\n');outputs[service]={k:v for k,v in result.items() if k!='files'}
     # Model input remains a retained, hash-verified build input, not anonymous
     # scratch. No program starts and no interpreted/model output is claimed.

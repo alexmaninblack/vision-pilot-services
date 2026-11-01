@@ -16,7 +16,7 @@ from .runtime import Runtime,calibration
 def main():
     p.require(sys.platform=='linux' and os.uname().machine=='aarch64' and os.getuid()>0,'NATIVE_NONROOT_LINUX_ARM64_REQUIRED')
     root=Path('/app');manifest=json.loads((root/'service-manifest.json').read_bytes());version=p.version(manifest['version'])
-    profile=json.loads((root/'config/calibration.json').read_bytes());runtime=Runtime(root);publisher=Client('perception-publish')
+    runtime=Runtime(root);publisher=Client('perception-publish')
     stop=threading.Event();epoch=str(uuid4());sequence=0;last=None;failure=None
     for name in (signal.SIGTERM,signal.SIGINT):signal.signal(name,lambda *_:stop.set())
     try:
@@ -24,9 +24,12 @@ def main():
             try:
                 publisher.request('status');pair=camera_pair()
                 if pair is None:stop.wait(.02);continue
-                binding,frames,jpegs=pair;key=(binding['sourceEpoch'],frames[-1]['frame'])
-                p.require(key!=last,'CAMERA_PAIR_REPEATED');last=key;calibration(profile,binding['calibrationId'])
-                models,timings=runtime.run(jpegs,profile);sequence+=1
+                binding,frames,jpegs=pair;key=(binding['componentEpoch'],binding['sourceEpoch'],frames[-1]['frame'])
+                p.require(key!=last,'CAMERA_PAIR_REPEATED');last=key
+                view=publisher.request('status',binding=binding,frames=frames);p.calibration(view)
+                p.require(view['binding']==binding and view['frames']==frames,'CALIBRATION_CAPTURE_MISMATCH')
+                p.require(view['calibration']['available'],'CALIBRATION_UNAVAILABLE');calibration(view['calibration']['profile'],binding['calibrationId'])
+                models,timings=runtime.run(jpegs,view['calibration']['rawToModel']);sequence+=1
                 value=dict(schemaVersion=1,kind='perception',binding=binding,frames=frames,
                     producer=dict(epoch=epoch,sequence=sequence,serviceVersion=version),modelProfile=p.MODEL_PROFILE,
                     preprocessingProfile=p.PREPROCESSING_PROFILE,models=models,timingsMs=timings)

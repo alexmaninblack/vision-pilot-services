@@ -12,8 +12,7 @@ def chw(image,np,normalized=False):
     return value
 
 
-def tensors(decoded,profile,np,cv2):
+def tensors(decoded,mappings,np,cv2):
     plain=chw(cv2.resize(decoded[1][80:],(1024,512),interpolation=cv2.INTER_LINEAR),np)
-    warp=np.asarray(profile['rawToModel'],np.float64)
-    temporal=[chw(cv2.warpPerspective(image,warp,(1024,512),flags=cv2.INTER_LINEAR,borderMode=cv2.BORDER_REFLECT_101),np,True) for image in decoded]
+    temporal=[chw(cv2.warpPerspective(image,np.asarray(warp,np.float64),(1024,512),flags=cv2.INTER_LINEAR,borderMode=cv2.BORDER_REFLECT_101),np,True) for image,warp in zip(decoded,mappings)]
     return plain,temporal

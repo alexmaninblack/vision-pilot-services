@@ -35,12 +35,13 @@ class PerceptionTests(unittest.TestCase):
         with self.assertRaises(Invalid):o.autospeed([[0.]*3 for _ in range(8)])
 
     def test_calibration_is_bound_nonsingular_and_not_foreign_geometry(self):
-        identity=[[1.,0.,0.],[0.,1.,0.],[0.,0.,1.]]
-        value=dict(schemaVersion=1,id='unit-calibration',profile='carla-forward-720p-fov50-v1',rawToModel=identity,modelToVehicle=identity,scope='PLANAR_REFERENCE_ONLY')
-        calibration(value,'unit-calibration')
+        import fixtures as f
+        import json,hashlib
+        value=f.profile();calibration(value,value['id'])
         with self.assertRaises(Invalid):calibration(value,'foreign')
-        value['rawToModel']=[[0.]*3 for _ in range(3)]
-        with self.assertRaises(Invalid):calibration(value,'unit-calibration')
+        data=json.loads(value['document']);data['modelToVehicle']=[[0.]*3 for _ in range(3)]
+        value['document']=json.dumps(data);value['id']=hashlib.sha256(value['document'].encode()).hexdigest()
+        with self.assertRaises(Invalid):calibration(value,value['id'])
 
     def test_dimensions_checked_without_decode_allocation(self):
         raw=b'\xff\xd8\xff\xc0\x00\x11\x08\x02\xd0\x05\x00\x03'+b'\x01\x11\x00'*3+b'\xff\xd9'

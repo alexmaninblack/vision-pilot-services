@@ -6,16 +6,21 @@ import json
 import math
 from pathlib import Path
 import re
+import struct
 from uuid import UUID
 
 MAX_RESULT=65536
 MAX_REQUEST=4096
 MODEL_PROFILE='vision-pilot-fp32-v1'
 PREPROCESSING_PROFILE='carla-forward-720p-fov50-v1'
-KINDS=('perception','context','assessment')
+KINDS=('perception','context','assessment','calibration')
 BINDING=('componentEpoch','sourceId','sourceEpoch','cameraId','calibrationId')
 FRAME=('frame','simulationTimeNs','sensorSimulationTimeNs','sha256')
 PRODUCER=('epoch','sequence','serviceVersion')
+MODEL_VIEW=[[struct.unpack('f',struct.pack('f',x))[0] for x in row] for row in (
+    (.00209514907,-.000941721466,-9.24906396),(.00662758637,-.000352940531,-3.33396502),(.000120077371,-.00411343505,1.))]
+CALIBRATION_ORIGIN=dict(repository='https://github.com/autowarefoundation/vision_pilot',revision='e7e5c614832f175f1f9f10a0d0c0df2559ff2c38',
+    path='VisionPilot/scripts/find_homography_C_matrix.py',sha256='8998abb376ef213bb0c826b4836e983a5102b06ae8f10932b933c970b3b5b9af')
 
 
 class Invalid(ValueError):pass
@@ -129,7 +134,8 @@ def common(value,kind):
 
 
 def context(value):
-    fields(value,('schemaVersion','kind','binding','frame','dynamics','vehicleProfile'));common(value,'context');frame(value['frame'])
+    fields(value,('schemaVersion','kind','binding','frame','dynamics','vehicleProfile','calibration'));common(value,'context');frame(value['frame'])
+    calibration_context(value['calibration'],value['binding']['calibrationId'])
     d=fields(value['dynamics'],('available','speedMps','simulationTimeNs'))
     if boolean(d['available']):
         number(d['speedMps'],0,120);integer(d['simulationTimeNs'])
@@ -143,11 +149,57 @@ def context(value):
 
 def gateway_context(value,component_epoch):
     """Add only the native epoch supplied by the trusted Source projection."""
-    fields(value,('schemaVersion','kind','binding','frame','dynamics','vehicleProfile'))
+    fields(value,('schemaVersion','kind','binding','frame','dynamics','vehicleProfile','calibration'))
     require(type(value['schemaVersion']) is int and value['schemaVersion']==1 and value['kind']=='gateway-context','SCHEMA_INVALID')
     fields(value['binding'],BINDING[1:]);identity(component_epoch)
     result=dict(value,kind='context',binding=dict(value['binding'],componentEpoch=component_epoch))
     return context(result)
+
+
+def matrix(value):
+    require(type(value) is list and len(value)==3 and all(type(row) is list and len(row)==3 for row in value),'CALIBRATION_SHAPE_INVALID')
+    for row in value:
+        for item in row:number(item)
+    a,b,c=value;det=a[0]*(b[1]*c[2]-b[2]*c[1])-a[1]*(b[0]*c[2]-b[2]*c[0])+a[2]*(b[0]*c[1]-b[1]*c[0])
+    require(abs(det)>1e-12,'CALIBRATION_SINGULAR');return value
+
+
+def calibration_profile(envelope,expected_id):
+    fields(envelope,('id','document'));require(type(envelope['document']) is str,'CALIBRATION_DOCUMENT_INVALID')
+    raw=envelope['document'].encode('utf-8');require(0<len(raw)<=2048,'CALIBRATION_DOCUMENT_LIMIT')
+    require(envelope['id']==expected_id==hashlib.sha256(raw).hexdigest(),'CALIBRATION_DIGEST_MISMATCH')
+    value=loads(raw,2048);fields(value,('schemaVersion','profile','scope','camera','modelToVehicle','projection','origin'))
+    require(type(value['schemaVersion']) is int and value['schemaVersion']==1 and value['profile']==PREPROCESSING_PROFILE
+        and value['scope']=='PLANAR_REFERENCE_ONLY','CALIBRATION_PROFILE_INVALID')
+    camera=fields(value['camera'],('width','height','horizontalFovDegrees','mountTranslationMetres','mountRotationDegrees'))
+    require(type(camera['width']) is int and camera['width']==1280 and type(camera['height']) is int and camera['height']==720,'CALIBRATION_CAMERA_INVALID')
+    number(camera['horizontalFovDegrees']);vector(camera['mountTranslationMetres'],3);vector(camera['mountRotationDegrees'],3)
+    require(camera['horizontalFovDegrees']==50 and all(abs(a-b)<1e-5 for a,b in zip(camera['mountTranslationMetres'],[1.6,0,1.5]))
+        and all(abs(v)<1e-5 for v in camera['mountRotationDegrees']),'CALIBRATION_MOUNT_INCOMPATIBLE')
+    matrix(value['modelToVehicle']);require(value['modelToVehicle']==MODEL_VIEW,'MODEL_VIEW_INCOMPATIBLE')
+    require(value['origin']==CALIBRATION_ORIGIN,'MODEL_VIEW_PROVENANCE_INVALID')
+    projection=fields(value['projection'],('algorithm','coordinates','maximumPlaneResidualMetres','maximumNormalAngleDegrees','referenceDistancesMetres'))
+    number(projection['maximumPlaneResidualMetres']);number(projection['maximumNormalAngleDegrees']);vector(projection['referenceDistancesMetres'],4)
+    require(projection==dict(algorithm='CARLA_PINHOLE_LOCAL_PLANAR_V1',coordinates='forward-metres-left-positive',maximumPlaneResidualMetres=.02,
+        maximumNormalAngleDegrees=.5,referenceDistancesMetres=[15,30,75,150]),'CALIBRATION_PROJECTION_INCOMPATIBLE')
+    return value
+
+
+def calibration_context(value,expected_id,pair=False):
+    fields(value,('available','reason','profile','rawToModel'));label(value['reason'])
+    if boolean(value['available']):
+        require(value['reason']=='CURRENT','CALIBRATION_REASON_INVALID');calibration_profile(value['profile'],expected_id)
+        if pair:
+            require(type(value['rawToModel']) is list and len(value['rawToModel'])==2,'CALIBRATION_PAIR_INVALID')
+            for item in value['rawToModel']:matrix(item)
+        else:matrix(value['rawToModel'])
+    else:_nulls(value,('profile','rawToModel'));require(value['reason']!='CURRENT','CALIBRATION_REASON_INVALID')
+    return value
+
+
+def calibration(value):
+    fields(value,('schemaVersion','kind','binding','frames','calibration'));common(value,'calibration');frames(value['frames'])
+    calibration_context(value['calibration'],value['binding']['calibrationId'],pair=True);return value
 
 
 def assessment(value):
@@ -181,7 +233,7 @@ def assessment(value):
 
 def validate(value):
     require(type(value) is dict and value.get('kind') in KINDS,'KIND_INVALID')
-    return {'perception':perception,'context':context,'assessment':assessment}[value['kind']](value)
+    return {'perception':perception,'context':context,'assessment':assessment,'calibration':calibration}[value['kind']](value)
 
 
 def unique(rows):

@@ -37,6 +37,8 @@ class Assessment:
                 if not matched:self.algorithm.reset();self.recovering=True;raise p.Invalid('CONTEXT_CAPTURE_MISMATCH')
             models_valid=all(value['valid'] for value in raw['models'].values())
             if not models_valid:self.algorithm.reset();self.recovering=True;result['reason']='PERCEPTION_INVALID'
+            elif matched and not context['calibration']['available']:
+                self.algorithm.reset();self.recovering=True;result['reason']='CALIBRATION_UNAVAILABLE'
             elif not matched:
                 self.algorithm.reset();self.recovering=True;result['reason']='CONTEXT_UNAVAILABLE'
             elif self.recovering:

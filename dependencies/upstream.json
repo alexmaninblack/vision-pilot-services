@@ -19,6 +19,13 @@
       "modifications": []
     },
     {
+      "upstreamPath": "VisionPilot/scripts/find_homography_C_matrix.py",
+      "upstreamSha256": "8998abb376ef213bb0c826b4836e983a5102b06ae8f10932b933c970b3b5b9af",
+      "path": "third_party/vision_pilot/VisionPilot/scripts/find_homography_C_matrix.py",
+      "sha256": "8998abb376ef213bb0c826b4836e983a5102b06ae8f10932b933c970b3b5b9af",
+      "modifications": []
+    },
+    {
       "upstreamPath": "VisionPilot/modules/models/include/models/auto_drive.hpp",
       "upstreamSha256": "89eb26ba953b7adb1b4858aa47c2b8af41da7addb351e5a814d6b2de44791293",
       "path": "third_party/vision_pilot/VisionPilot/modules/models/include/models/auto_drive.hpp",

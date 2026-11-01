@@ -20,11 +20,12 @@ class PreprocessingTests(unittest.TestCase):
         image=np.zeros((720,1280,3),np.uint8);resized=np.zeros((512,1024,3),np.uint8)
         cv2=SimpleNamespace(resize=Mock(return_value=resized),warpPerspective=Mock(return_value=resized),INTER_LINEAR=1,BORDER_REFLECT_101=4)
         matrix=[[1.,0.,0.],[0.,1.,0.],[0.,0.,1.]]
-        plain,pair=tensors([image,image],dict(rawToModel=matrix),np,cv2)
+        other=[[1.,0.,2.],[0.,1.,0.],[0.,0.,1.]]
+        plain,pair=tensors([image,image],[matrix,other],np,cv2)
         self.assertEqual(cv2.resize.call_args.args[0].shape,(640,1280,3));self.assertEqual(cv2.resize.call_args.args[1],(1024,512))
         self.assertEqual(cv2.warpPerspective.call_count,2)
-        for call in cv2.warpPerspective.call_args_list:
-            np.testing.assert_array_equal(call.args[1],matrix);self.assertEqual(call.kwargs['borderMode'],4)
+        for call,mapping in zip(cv2.warpPerspective.call_args_list,[matrix,other]):
+            np.testing.assert_array_equal(call.args[1],mapping);self.assertEqual(call.kwargs['borderMode'],4)
         self.assertEqual(plain.shape,(1,3,512,1024));self.assertEqual(len(pair),2)
 
 

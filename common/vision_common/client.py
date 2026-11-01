@@ -18,9 +18,13 @@ class Client:
     def __init__(self,role):
         p.require(role in ROLES,'RESOURCE_ROLE_INVALID');self.role=role;self.path=ROOT/role/'exchange.sock';self.epoch=None
 
-    def request(self,operation,*,value=None,after=None,binding=None,frame=None):
+    def request(self,operation,*,value=None,after=None,binding=None,frame=None,frames=None):
         p.require(operation in ROLES[self.role],'RESOURCE_OPERATION_DENIED')
         request=dict(schemaVersion=1,operation=operation)
+        capture_status=operation=='status' and (binding is not None or frames is not None)
+        if capture_status:
+            p.require(self.role=='perception-publish','RESOURCE_OPERATION_DENIED');p.binding(binding);p.frames(frames)
+            request.update(binding=binding,frames=frames)
         if operation!='status':p.identity(self.epoch);request['exchangeEpoch']=self.epoch
         if operation=='publish':
             p.validate(value);raw=p.dumps(value);request['payloadBytes']=len(raw)
@@ -39,10 +43,11 @@ class Client:
             p.identity(response.get('exchangeEpoch'))
             if operation=='status':self.epoch=response['exchangeEpoch']
             else:p.require(self.epoch==response['exchangeEpoch'],'EXCHANGE_EPOCH_CHANGED')
-            if response.get('state') in ('RESULT','CONTEXT'):
-                p.require((operation,response['state']) in (('latest','RESULT'),('context','CONTEXT')),'EXCHANGE_STATE_INVALID')
-                message=ipc.receive(connection,deadline,p.MAX_REQUEST if operation=='context' else p.MAX_RESULT);p.validate(message)
-                p.require(message['kind']==('context' if operation=='context' else 'perception'),'EXCHANGE_KIND_INVALID');return message
+            if response.get('state') in ('RESULT','CONTEXT','CALIBRATION'):
+                p.require((operation,response['state']) in (('latest','RESULT'),('context','CONTEXT'),('status','CALIBRATION')),'EXCHANGE_STATE_INVALID')
+                p.require(response['state']!='CALIBRATION' or capture_status,'EXCHANGE_STATE_INVALID')
+                message=ipc.receive(connection,deadline,p.MAX_RESULT if operation=='latest' else p.MAX_REQUEST);p.validate(message)
+                p.require(message['kind']=={'latest':'perception','context':'context','status':'calibration'}[operation],'EXCHANGE_KIND_INVALID');return message
             p.require(response['state'] in {'status':('STATUS',),'publish':('ACCEPTED',),'latest':('UNCHANGED','UNAVAILABLE'),'context':('UNAVAILABLE',)}[operation],'EXCHANGE_STATE_INVALID')
             return response
 

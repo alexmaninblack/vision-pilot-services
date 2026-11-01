@@ -9,7 +9,8 @@ from pathlib import Path
 import subprocess
 
 PIN='e7e5c614832f175f1f9f10a0d0c0df2559ff2c38'
-PATHS=['LICENSE','VisionPilot/modules/common/include/common/types.hpp']
+MODEL_VIEW_SOURCE='VisionPilot/scripts/find_homography_C_matrix.py'
+PATHS=['LICENSE','VisionPilot/modules/common/include/common/types.hpp',MODEL_VIEW_SOURCE]
 PATHS += ['VisionPilot/modules/models/include/models/'+name+'.hpp' for name in ('auto_drive','auto_steer','auto_speed')]
 for component,names in (('fusion',('lateral_fusion','longitudinal_fusion')),('planning',('planning','lateral_planning','longitudinal_planning'))):
     for name in names:
@@ -25,7 +26,7 @@ def main():
     if target.exists():
         assert a.refresh_owned,'UPSTREAM_IMPORT_EXISTS_RECONCILE'
         previous=json.loads((root/'dependencies/upstream.json').read_bytes())
-        assert previous['revision']==PIN and {r['upstreamPath'] for r in previous['importedFiles']}==set(PATHS)
+        assert previous['revision']==PIN and {r['upstreamPath'] for r in previous['importedFiles']} in (set(PATHS),set(PATHS)-{MODEL_VIEW_SOURCE})
         for row in previous['importedFiles']:
             assert hashlib.sha256((root/row['path']).read_bytes()).hexdigest()==row['sha256'],'IMPORTED_SOURCE_CHANGED'
         assert {str(p.relative_to(root)) for p in target.rglob('*') if p.is_file()}=={r['path'] for r in previous['importedFiles']},'UNOWNED_SOURCE_PRESENT'

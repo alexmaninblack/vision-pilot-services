@@ -64,6 +64,53 @@
         "INCOMPATIBLE"
       ]
     },
+    "calibration": {
+      "acceptedByOperator": "2026-11-01: exact Source-derived camera calibration through existing Perception publish status and Assessment context-read; no new port/resource/app key/control",
+      "assessment": "Same profile and current-frame mapping in context-read; no application file/config/key input",
+      "contextFields": [
+        "available",
+        "reason",
+        "profile",
+        "rawToModel"
+      ],
+      "fields": [
+        "schemaVersion",
+        "kind",
+        "binding",
+        "frames",
+        "calibration"
+      ],
+      "kind": "calibration",
+      "maximumProfileDocumentBytes": 2048,
+      "perception": "Capture-bound status only on perception-publish, two exact frame mappings and no dynamics; unavailable with null profile/maps",
+      "profileDocumentFields": [
+        "schemaVersion",
+        "profile",
+        "scope",
+        "camera",
+        "modelToVehicle",
+        "projection",
+        "origin"
+      ],
+      "profileEnvelopeFields": [
+        "id",
+        "document"
+      ],
+      "profileIdentity": "SHA-256 of complete strict UTF-8 document, never mount name only",
+      "projection": {
+        "algorithm": "CARLA_PINHOLE_LOCAL_PLANAR_V1",
+        "coordinates": "forward-metres-left-positive",
+        "maximumNormalAngleDegrees": 0.5,
+        "maximumPlaneResidualMetres": 0.02,
+        "referenceDistancesMetres": [
+          15,
+          30,
+          75,
+          150
+        ]
+      },
+      "scope": "PLANAR_REFERENCE_ONLY"
+    },
     "common": {
       "bindingFields": [
         "componentEpoch",
@@ -99,7 +146,8 @@
         "binding",
         "frame",
         "dynamics",
-        "vehicleProfile"
+        "vehicleProfile",
+        "calibration"
       ],
       "groundTruthModelInput": false,
       "kind": "context",
@@ -124,7 +172,8 @@
         "binding",
         "frame",
         "dynamics",
-        "vehicleProfile"
+        "vehicleProfile",
+        "calibration"
       ],
       "kind": "gateway-context",
       "localProjection": "OEM adapter adds only the Camera componentEpoch from Source-owned native selection, never from an application. All remaining binding/frame facts must match authenticated Gateway context."

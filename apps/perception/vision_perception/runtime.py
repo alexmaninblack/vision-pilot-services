@@ -9,6 +9,7 @@ from pathlib import Path
 import sys
 import time
 from vision_common.protocol import require,fields,label,number,Invalid
+from vision_common import protocol as p
 from vision_common.jpeg import dimensions
 from . import outputs
 from .preprocessing import tensors
@@ -20,17 +21,7 @@ MODEL_SHA={
 
 
 def calibration(value,expected_id):
-    fields(value,('schemaVersion','id','profile','rawToModel','modelToVehicle','scope'))
-    require(type(value['schemaVersion']) is int and value['schemaVersion']==1 and value['id']==expected_id,'CALIBRATION_BINDING_INVALID')
-    require(value['profile']=='carla-forward-720p-fov50-v1' and value['scope']=='PLANAR_REFERENCE_ONLY','CALIBRATION_PROFILE_INVALID')
-    for name in ('rawToModel','modelToVehicle'):
-        matrix=value[name];require(type(matrix) is list and len(matrix)==3 and all(type(row) is list and len(row)==3 for row in matrix),'CALIBRATION_SHAPE_INVALID')
-        for row in matrix:
-            for v in row:number(v)
-        a,b,c=matrix
-        determinant=a[0]*(b[1]*c[2]-b[2]*c[1])-a[1]*(b[0]*c[2]-b[2]*c[0])+a[2]*(b[0]*c[1]-b[1]*c[0])
-        require(abs(determinant)>1e-12,'CALIBRATION_SINGULAR')
-    return value
+    return p.calibration_profile(value,expected_id)
 
 
 class Runtime:
@@ -56,13 +47,15 @@ class Runtime:
 
     def close(self):self.pool.shutdown(wait=True,cancel_futures=True)
 
-    def run(self,jpegs,profile):
+    def run(self,jpegs,mappings):
         np,cv2=self.np,self.cv2;start=time.perf_counter();require(len(jpegs)==2,'PAIR_INVALID')
+        require(type(mappings) is list and len(mappings)==2,'CALIBRATION_PAIR_INVALID')
+        for matrix in mappings:p.matrix(matrix)
         for raw in jpegs:dimensions(raw)
         decoded=[cv2.imdecode(np.frombuffer(raw,np.uint8),cv2.IMREAD_COLOR) for raw in jpegs]
         require(all(image is not None and image.shape==(720,1280,3) for image in decoded),'PIXEL_DECODE_INVALID')
         after_decode=time.perf_counter()
-        plain,temporal=tensors(decoded,profile,np,cv2)
+        plain,temporal=tensors(decoded,mappings,np,cv2)
         preprocessed=time.perf_counter()
         def infer(name,tensors):
             began=time.perf_counter();options=self.ort.RunOptions();options.add_run_config_entry('memory.enable_memory_arena_shrinkage','cpu:0')

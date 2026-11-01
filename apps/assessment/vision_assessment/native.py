@@ -58,9 +58,9 @@ def decode(value):
 
 
 class Native:
-    def __init__(self,root,calibration):
+    def __init__(self,root):
         p.require(sys.platform=='linux' and os.uname().machine=='aarch64','LINUX_ARM64_REQUIRED')
-        self.calibration=calibration;self.library=c.CDLL(str(Path(root)/'lib/libvision_assessment.so'));self.state=None
+        self.library=c.CDLL(str(Path(root)/'lib/libvision_assessment.so'));self.state=None
         lib=self.library;lib.vision_assessment_abi.restype=c.c_uint32
         lib.vision_assessment_input_size.restype=c.c_uint32;lib.vision_assessment_output_size.restype=c.c_uint32
         p.require(lib.vision_assessment_abi()==1 and lib.vision_assessment_input_size()==c.sizeof(Input)
@@ -77,6 +77,8 @@ class Native:
         if self.state:self.library.vision_assessment_destroy(self.state);self.state=None
 
     def update(self,raw,context,seconds):
-        value=encode(raw,context,seconds,self.calibration['modelToVehicle']);output=Output()
+        p.require(context['calibration']['available'],'CALIBRATION_UNAVAILABLE')
+        profile=p.calibration_profile(context['calibration']['profile'],raw['binding']['calibrationId'])
+        value=encode(raw,context,seconds,profile['modelToVehicle']);output=Output()
         p.require(self.library.vision_assessment_step(self.state,c.byref(value),c.byref(output))==0,'NATIVE_ALGORITHM_FAILED')
         return decode(output)

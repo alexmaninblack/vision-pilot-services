@@ -16,7 +16,7 @@ from .native import Native
 def main():
     p.require(sys.platform=='linux' and os.uname().machine=='aarch64' and os.getuid()>0,'NATIVE_NONROOT_LINUX_ARM64_REQUIRED')
     root=Path('/app');manifest=json.loads((root/'service-manifest.json').read_bytes());version=p.version(manifest['version'])
-    profile=json.loads((root/'config/calibration.json').read_bytes());algorithm=Native(root,profile);core=Assessment(algorithm,service_version=version)
+    algorithm=Native(root);core=Assessment(algorithm,service_version=version)
     reader=Client('perception-read');context_reader=Client('context-read');publisher=Client('assessment-publish')
     stop=threading.Event();last=None;failure=None
     for name in (signal.SIGTERM,signal.SIGINT):signal.signal(name,lambda *_:stop.set())

@@ -10,6 +10,11 @@ find_library(OPENCV_CORE_LIBRARY opencv_core REQUIRED)
 find_package(Eigen3 REQUIRED)
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(IPOPT REQUIRED ipopt)
+find_path(IPOPT_APPLICATION_INCLUDE_DIR IpIpoptApplication.hpp HINTS ${IPOPT_INCLUDE_DIRS} REQUIRED)
+# CppAD names coin-or/, while the pinned Ubuntu Ipopt uses coin/. Keep the
+# compatibility alias inside this owned build tree, never /usr/include.
+file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/compat")
+file(CREATE_LINK "${IPOPT_APPLICATION_INCLUDE_DIR}" "${CMAKE_CURRENT_BINARY_DIR}/compat/coin-or" SYMBOLIC)
 find_path(CPPAD_INCLUDE_DIR cppad/cppad.hpp REQUIRED)
 find_library(CPPAD_LIBRARY cppad_lib)
 get_filename_component(ROOT "${CMAKE_CURRENT_LIST_DIR}/../../.." ABSOLUTE)
@@ -20,7 +25,7 @@ add_library(vision_assessment SHARED assessment.cpp
     "${UPSTREAM}/safety_guardian/planning/src/planning.cpp"
     "${UPSTREAM}/safety_guardian/planning/src/longitudinal_planning.cpp"
     "${UPSTREAM}/safety_guardian/planning/src/lateral_planning.cpp")
-target_include_directories(vision_assessment PRIVATE include ${OPENCV_INCLUDE_DIR} ${IPOPT_INCLUDE_DIRS} ${CPPAD_INCLUDE_DIR}
+target_include_directories(vision_assessment PRIVATE include "${CMAKE_CURRENT_BINARY_DIR}/compat" ${OPENCV_INCLUDE_DIR} ${IPOPT_INCLUDE_DIRS} ${CPPAD_INCLUDE_DIR}
     "${UPSTREAM}/common/include" "${UPSTREAM}/models/include"
     "${UPSTREAM}/safety_guardian/fusion/include" "${UPSTREAM}/safety_guardian/planning/include")
 target_compile_definitions(vision_assessment PRIVATE HAVE_CSTDDEF)

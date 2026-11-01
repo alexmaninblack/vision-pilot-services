@@ -21,6 +21,14 @@ def archive(rows):
 
 
 class AosProfilesTests(unittest.TestCase):
+    def test_official_signer_dot_root_is_closed_and_duplicate_aliases_still_fail(self):
+        raw=archive([('.',b'',tarfile.DIRTYPE),('./config.yaml',b'{}',tarfile.REGTYPE)])
+        self.assertEqual(MODULE['files'](raw,'assessment',signer_archive=True)['config.yaml'][0],b'{}')
+        with self.assertRaises(ValueError):MODULE['files'](raw,'assessment')
+        for rows in ([('./a',b'x',tarfile.REGTYPE),('a',b'y',tarfile.REGTYPE)],
+                [('././a',b'x',tarfile.REGTYPE)],[('.',b'x',tarfile.REGTYPE)]):
+            with self.assertRaises(ValueError):MODULE['files'](archive(rows),'assessment',signer_archive=True)
+
     def test_the_larger_profile_is_only_perception(self):
         profiles=MODULE['PROFILES'];self.assertEqual(profiles['perception']['expanded'],512*1024**2)
         self.assertEqual(profiles['assessment']['expanded'],256*1024**2)

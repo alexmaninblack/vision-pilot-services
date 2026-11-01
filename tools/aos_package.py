@@ -26,16 +26,23 @@ def require(ok,code):
 def sha(raw):return hashlib.sha256(raw).hexdigest()
 
 
-def files(raw,role):
+def files(raw,role,*,signer_archive=False):
     require(role in PROFILES,'VISION_PACKAGE_PROFILE_INVALID');profile=PROFILES[role]
     require(type(raw) is bytes and len(raw)<=profile['compressed'],'VISION_PACKAGE_COMPRESSED_LIMIT')
     result={};seen=set();total=0
     try:
         with tarfile.open(fileobj=io.BytesIO(raw),mode='r|*') as archive:
             for index,row in enumerate(archive):
-                path=PurePosixPath(row.name);name=path.as_posix()
+                original=row.name
+                # The official SDK uses shutil.make_archive, which emits a
+                # root directory and one './' prefix. Normalize only that
+                # closed format; aliases still collide in the canonical set.
+                if signer_archive and original=='.':
+                    require(index==0 and row.isdir(),'VISION_PACKAGE_ROOT_UNSAFE');continue
+                normalized=original[2:] if signer_archive and original.startswith('./') else original
+                path=PurePosixPath(normalized);name=path.as_posix()
                 require(index<10000 and not path.is_absolute() and '..' not in path.parts and '\\' not in row.name
-                    and name==row.name and 0<len(name)<=512 and all(ord(c)>=32 for c in name)
+                    and name==normalized and name!='.' and 0<len(name)<=512 and all(ord(c)>=32 for c in name)
                     and (row.isfile() or row.isdir()) and row.sparse is None and not row.mode&0o7000,'VISION_PACKAGE_MEMBER_UNSAFE')
                 require(name not in seen,'VISION_PACKAGE_MEMBER_DUPLICATE');seen.add(name)
                 if row.isdir():continue
@@ -101,13 +108,13 @@ def verify_signed(bundle,credential,role,prepared,expected_sha256=None):
     require(role in PROFILES and prepared['role']==role,'VISION_PACKAGE_PROFILE_INVALID')
     require(bundle.is_file() and not bundle.is_symlink() and bundle.stat().st_size<=PROFILES[role]['compressed'],'VISION_SIGNED_PATH_INVALID')
     raw=bundle.read_bytes();require(expected_sha256 is None or sha(raw)==expected_sha256,'VISION_SIGNED_DIGEST_CHANGED')
-    outer=files(raw,role);require(set(outer)=={'package.sign','config.yaml','batch.tar.gz'},'VISION_SIGNED_ENVELOPE_INVALID')
+    outer=files(raw,role,signer_archive=True);require(set(outer)=={'package.sign','config.yaml','batch.tar.gz'},'VISION_SIGNED_ENVELOPE_INVALID')
     require(credential.is_file() and not credential.is_symlink() and not credential.stat().st_mode&0o077 and credential.stat().st_size<=1024**2,'VISION_SP_CREDENTIAL_UNSAFE')
     _,certificate,_=load_key_and_certificates(credential.read_bytes(),b'');require(certificate is not None,'VISION_SP_CERTIFICATE_MISSING')
     value=jwt.decode(outer['package.sign'][0],certificate.public_key(),algorithms=['RS256'])
     expected=[dict(name=name,size=len(outer[name][0]),hash=hashlib.sha3_512(outer[name][0]).hexdigest()) for name in ('batch.tar.gz','config.yaml')]
     require(type(value.get('data')) is list and sorted(value['data'],key=lambda row:row['name'])==sorted(expected,key=lambda row:row['name']),'VISION_SIGNED_HASH_MISMATCH')
-    inner=files(outer['batch.tar.gz'][0],role)
+    inner=files(outer['batch.tar.gz'][0],role,signer_archive=True)
     require(set(inner)==set(prepared['files']) and inner['config.yaml'][0]==outer['config.yaml'][0],'VISION_SIGNED_FILE_SET_CHANGED')
     for name,(data,mode) in inner.items():
         pin=prepared['files'][name];require(sha(data)==pin['sha256'] and len(data)==pin['bytes'] and mode==pin['mode'],'VISION_SIGNED_PAYLOAD_CHANGED')

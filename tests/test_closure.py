@@ -8,13 +8,13 @@ import unittest
 class ClosureOwnershipTests(unittest.TestCase):
     def test_header_notices_require_regular_files_not_symlinks(self):
         import tempfile
-        from unittest.mock import patch
-        function=runpy.run_path(str(Path(__file__).resolve().parents[1]/'tools/build_closure.py'))['Closure'].licenses
-        # Guard the exact predicate regression, without a Builder or dpkg call.
-        import ast,inspect
-        tree=ast.parse(inspect.getsource(runpy.run_path(str(Path(__file__).resolve().parents[1]/'tools/build_closure.py'))['main']))
-        source=(Path(__file__).resolve().parents[1]/'tools/build_closure.py').read_text()
-        self.assertIn('require(not notice.is_symlink() and notice.is_file()',source)
+        function=runpy.run_path(str(Path(__file__).resolve().parents[1]/'tools/build_closure.py'))['regular_header_notice']
+        with tempfile.TemporaryDirectory() as temporary:
+            notice=Path(temporary)/'notice';notice.write_text('Synthetic unit notice')
+            self.assertEqual(function(notice),notice)
+            linked=notice.with_name('linked');linked.symlink_to(notice)
+            for path in (linked,notice.with_name('missing'),notice.parent):
+                with self.assertRaisesRegex(ValueError,'HEADER_BUILD_NOTICE_ABSENT'):function(path)
 
     def test_yocto_package_qualified_file_and_license_fields_are_not_discarded(self):
         function=runpy.run_path(str(Path(__file__).resolve().parents[1]/'tools/build_closure.py'))['package_fields']

@@ -50,6 +50,11 @@ def package_fields(text,name):
     result.update(qualified);return result
 
 
+def regular_header_notice(path):
+    require(not path.is_symlink() and path.is_file() and path.stat().st_size<=4*1024**2,'HEADER_BUILD_NOTICE_ABSENT')
+    return path
+
+
 def resolve(root,relative):
     """Resolve absolute target links relative to the target root, not Builder /."""
     pending=list(PurePosixPath('/'+str(relative).lstrip('/')).parts[1:]);current=root;links=0
@@ -137,7 +142,7 @@ class Closure:
             for package,expected in {'libeigen3-dev':'3.4.0-2ubuntu2','libcppad-dev':'2021.00.00.8-1'}.items():
                 version=subprocess.check_output(['dpkg-query','-W','-f=${Version}',package],text=True)
                 require(version==expected,'HEADER_BUILD_DEPENDENCY_CHANGED')
-                notice=Path('/usr/share/doc')/package/'copyright';require(not notice.is_symlink() and notice.is_file() and notice.stat().st_size<=4*1024**2,'HEADER_BUILD_NOTICE_ABSENT')
+                notice=regular_header_notice(Path('/usr/share/doc')/package/'copyright')
                 self.copy(notice,'app/notices/build-headers/'+package+'.copyright',dict(kind='header-build-copyright',package=package,version=version))
                 headers[package]=dict(version=version,noticeSha256=digest(notice))
         sbom=dict(schemaVersion=1,kind='vision-service-runtime-sbom',yoctoPackages=selected,builderDebs=debs,headerBuildDependencies=headers,

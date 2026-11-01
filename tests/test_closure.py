@@ -6,6 +6,16 @@ import unittest
 
 
 class ClosureOwnershipTests(unittest.TestCase):
+    def test_header_notices_require_regular_files_not_symlinks(self):
+        import tempfile
+        from unittest.mock import patch
+        function=runpy.run_path(str(Path(__file__).resolve().parents[1]/'tools/build_closure.py'))['Closure'].licenses
+        # Guard the exact predicate regression, without a Builder or dpkg call.
+        import ast,inspect
+        tree=ast.parse(inspect.getsource(runpy.run_path(str(Path(__file__).resolve().parents[1]/'tools/build_closure.py'))['main']))
+        source=(Path(__file__).resolve().parents[1]/'tools/build_closure.py').read_text()
+        self.assertIn('require(not notice.is_symlink() and notice.is_file()',source)
+
     def test_yocto_package_qualified_file_and_license_fields_are_not_discarded(self):
         function=runpy.run_path(str(Path(__file__).resolve().parents[1]/'tools/build_closure.py'))['package_fields']
         fields=function('PN: libgcc\nPV: 13.4.0\nLICENSE: wrong-default\nLICENSE:libgcc: GPL-3.0-with-GCC-exception\nFILES_INFO:libgcc: {"/usr/lib/libgcc_s.so.1":133016}\n','libgcc')

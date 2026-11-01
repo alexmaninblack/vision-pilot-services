@@ -40,6 +40,16 @@ def package_owner(source,query=subprocess.check_output):
     require(len(owners)==1,'NATIVE_LIBRARY_PACKAGE_AMBIGUOUS');return owners.pop()
 
 
+def package_fields(text,name):
+    result={};qualified={}
+    for line in text.splitlines():
+        key,separator,value=line.partition(': ')
+        if not separator:continue
+        if key in ('PN','PV','LICENSE','FILES_INFO'):result[key]=value
+        elif key in ('LICENSE:'+name,'FILES_INFO:'+name):qualified[key.split(':',1)[0]]=value
+    result.update(qualified);return result
+
+
 def resolve(root,relative):
     """Resolve absolute target links relative to the target root, not Builder /."""
     pending=list(PurePosixPath('/'+str(relative).lstrip('/')).parts[1:]);current=root;links=0
@@ -93,10 +103,7 @@ class Closure:
         owners={};recipes={}
         for path in sorted((pkgdata/'runtime').iterdir()):
             if not path.is_file() or path.is_symlink() or path.stat().st_size>4*1024**2:continue
-            data={}
-            for line in path.read_text().splitlines():
-                key,separator,value=line.partition(': ')
-                if separator and key in ('PN','PV','LICENSE','FILES_INFO'):data[key]=value
+            data=package_fields(path.read_text(),path.name)
             if 'FILES_INFO' not in data:continue
             files=json.loads(data['FILES_INFO']);require(type(files) is dict,'PKGDATA_FILES_INVALID')
             recipes[path.name]=data
@@ -113,8 +120,9 @@ class Closure:
             require(all(record.get(key) for key in ('PN','PV','LICENSE')) and record['LICENSE']!='CLOSED','CLEAN_RUNTIME_LICENSE_MISSING')
             selected[package]=dict(recipe=record['PN'],version=record['PV'],license=record['LICENSE'])
         for recipe in sorted({row['recipe'] for row in selected.values()}):
-            require(re.fullmatch('[A-Za-z0-9_.+-]+',recipe) is not None,'LICENSE_RECIPE_INVALID');directory=licenses/recipe
-            require(directory.is_dir(),'RECIPE_NOTICE_ABSENT_'+recipe)
+            require(re.fullmatch('[A-Za-z0-9_.+-]+',recipe) is not None,'LICENSE_RECIPE_INVALID')
+            candidates=[p for arch in ('allarch','cortexa57','qemuarm64') if (p:=licenses/arch/recipe).is_dir()]
+            require(len(candidates)==1,'RECIPE_NOTICE_ABSENT_OR_AMBIGUOUS_'+recipe);directory=candidates[0]
             copied=0
             for path in sorted(directory.iterdir()):
                 if not path.is_file():continue
@@ -182,6 +190,7 @@ def main():
     p=argparse.ArgumentParser()
     for name in ('clean-rootfs','models','assessment-library','output'):p.add_argument('--'+name,type=Path,required=True)
     p.add_argument('--pkgdata-root',type=Path);p.add_argument('--license-root',type=Path)
+    p.add_argument('--source-revision')
     p.add_argument('--models-sha256',required=True);p.add_argument('--assessment-sha256',required=True)
     p.add_argument('--resume-owned',action='store_true');a=p.parse_args()
     require(os.uname().sysname=='Linux' and os.uname().machine=='aarch64','SSD_ARM64_BUILDER_REQUIRED')
@@ -219,6 +228,23 @@ def main():
                 path=destination/row['path'];require(not path.is_symlink() and path.stat().st_size==row['bytes'] and digest(path)==row['sha256'],'COMPLETED_CLOSURE_CHANGED')
             outputs[service]={k:v for k,v in result.items() if k!='files'};continue
         destination.mkdir(parents=True,exist_ok=a.resume_owned);closure=Closure(destination,a.clean_rootfs)
+        if a.source_revision:
+            require(re.fullmatch('[a-f0-9]{40}',a.source_revision) is not None and root.name=='source' and '.tmp' in root.parts,'OWNED_SOURCE_EXPORT_REQUIRED')
+            executable=root.parent/(service+'-launcher')
+            subprocess.run(['gcc','-O2','-Wall','-Wextra','-Werror','-fstack-protector-strong','-Wl,-z,relro,-z,now',
+                str(root/'apps/common/launcher.c'),'-o',str(executable)],env=dict(os.environ,TMPDIR=str(root.parent)),check=True,capture_output=True,timeout=30)
+            closure.copy(executable,'usr/bin/vision-'+service,dict(kind='vision-service-launcher',sourceRevision=a.source_revision,source='apps/common/launcher.c'))
+            closure.emit('app/service-manifest.json',dict(schemaVersion=1,codename='vision-'+service,version='0.1.0',sourceRevision=a.source_revision,
+                upstream=lock['upstream']),dict(kind='generated-service-identity'))
+            entry='''# SPDX-FileCopyrightText: 2026 maninblack
+# SPDX-License-Identifier: Apache-2.0
+import sys
+sys.path[:0]=['/app/common','/app','/app/libraries']
+from vision_SERVICE.__main__ import main
+raise SystemExit(main())
+'''.replace('SERVICE',service)
+            (destination/'app').mkdir(exist_ok=True);(destination/'app/entry.py').write_text(entry);(destination/'app/entry.py').chmod(0o444)
+            closure.origins['app/entry.py']=dict(kind='generated-fixed-entry',sourceRevision=a.source_revision)
         closure.copy(resolve(a.clean_rootfs,'usr/bin/python3.12'),'usr/bin/python3.12',dict(kind='clean-vision-rootfs',path='usr/bin/python3.12'))
         closure.tree(a.clean_rootfs/'usr/lib/python3.12','usr/lib/python3.12',dict(kind='clean-vision-rootfs',path='usr/lib/python3.12'))
         closure.tree(root/'common','app/common',dict(kind='vision-pilot-services',path='common'))

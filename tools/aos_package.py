@@ -83,11 +83,44 @@ def validate_rootfs(payload,manifest,role):
     return identity
 
 
+def portable_notices(payload):
+    """Preserve all notice bytes on normal case-insensitive macOS volumes.
+
+    Only colliding notice basenames may change, with a shipped provenance map.
+    Executable/library/model path aliases are an error, never normalized.
+    """
+    groups={}
+    for name in payload:groups.setdefault(name.casefold(),[]).append(name)
+    changed=[];result={}
+    for name,(data,mode) in payload.items():
+        target=name
+        if len(groups[name.casefold()])>1:
+            require(name.startswith('app/notices/') and mode==0o444,'VISION_RUNTIME_CASE_ALIAS')
+            target=name+'.path-'+sha(name.encode())[:12]
+            changed.append(dict(original=name,packaged=target,sha256=sha(data),bytes=len(data)))
+        require(target not in result,'VISION_NOTICE_PATH_CONFLICT');result[target]=(data,mode)
+    require(len({name.casefold() for name in result})==len(result),'VISION_NOTICE_CASE_ALIAS')
+    # Parent directory aliases would merge on APFS too; only file basenames
+    # above are eligible. Reject all other case-insensitive path collisions.
+    parents={}
+    for name in result:
+        for parent in PurePosixPath(name).parents:
+            key=parent.as_posix().casefold();previous=parents.setdefault(key,parent.as_posix())
+            require(previous==parent.as_posix(),'VISION_PARENT_CASE_ALIAS')
+    if changed:
+        target='app/notices/packaging-paths.json';require(target not in result,'VISION_NOTICE_MAPPING_CONFLICT')
+        raw=(json.dumps(dict(schemaVersion=1,kind='case-portable-license-paths',files=sorted(changed,key=lambda row:row['original'])),indent=2)+'\n').encode()
+        result[target]=(raw,0o444)
+    return result,changed
+
+
 def prepare(archive,manifest,role,quotas,output,expected_sha256):
     require(output.is_absolute() and not output.exists() and not output.is_symlink(),'VISION_PACKAGE_OUTPUT_EXISTS')
     require(archive.is_file() and not archive.is_symlink() and archive.stat().st_size<=PROFILES[role]['compressed'],'VISION_PACKAGE_INPUT_UNSAFE')
     raw=archive.read_bytes();require(sha(raw)==expected_sha256,'VISION_PACKAGE_INPUT_CHANGED')
     payload=files(raw,role);identity=validate_rootfs(payload,manifest,role);config=configuration(role,quotas)
+    payload,notice_paths=portable_notices(payload)
+    require(sum(len(data) for data,_ in payload.values())<=PROFILES[role]['expanded'],'VISION_PACKAGE_EXPANSION_LIMIT')
     output.mkdir(mode=0o700)
     prepared={}
     for name,(data,mode) in payload.items():
@@ -96,7 +129,7 @@ def prepare(archive,manifest,role,quotas,output,expected_sha256):
     encoded=(json.dumps(config,indent=2)+'\n').encode();(output/'config.yaml').write_bytes(encoded);(output/'config.yaml').chmod(0o444)
     prepared['config.yaml']=dict(sha256=sha(encoded),bytes=len(encoded),mode=0o444)
     receipt=dict(schemaVersion=1,role=role,version='0.1.0',profile='vision-'+role+'-arm64-v1',rootfsSha256=expected_sha256,
-        sourceRevision=identity['sourceRevision'],files=prepared,quotas=quotas,signing='NOT_RUN',publication='NOT_RUN')
+        sourceRevision=identity['sourceRevision'],files=prepared,quotas=quotas,noticePaths=notice_paths,signing='NOT_RUN',publication='NOT_RUN')
     (output/'prepared.json').write_text(json.dumps(receipt,indent=2)+'\n');(output/'prepared.json').chmod(0o444)
     return receipt
 

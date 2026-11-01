@@ -21,6 +21,16 @@ def archive(rows):
 
 
 class AosProfilesTests(unittest.TestCase):
+    def test_license_case_aliases_keep_both_bytes_and_ship_original_path_map(self):
+        original={'app/notices/bzip2/LICENSE.txt':(b'one',0o444),'app/notices/bzip2/License.txt':(b'two',0o444),'app/module.py':(b'code',0o444)}
+        payload,mapping=MODULE['portable_notices'](original)
+        self.assertEqual(payload['app/module.py'],original['app/module.py']);self.assertEqual(len(mapping),2)
+        self.assertEqual({payload[row['packaged']][0] for row in mapping},{b'one',b'two'})
+        self.assertIn('app/notices/packaging-paths.json',payload)
+        for bad in ({'app/M.py':(b'a',0o444),'app/m.py':(b'b',0o444)},
+                {'app/notices/Upper/a':(b'a',0o444),'app/notices/upper/b':(b'b',0o444)}):
+            with self.assertRaises(ValueError):MODULE['portable_notices'](bad)
+
     def test_official_signer_dot_root_is_closed_and_duplicate_aliases_still_fail(self):
         raw=archive([('.',b'',tarfile.DIRTYPE),('./config.yaml',b'{}',tarfile.REGTYPE)])
         self.assertEqual(MODULE['files'](raw,'assessment',signer_archive=True)['config.yaml'][0],b'{}')

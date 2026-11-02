@@ -64,5 +64,13 @@ class AosProfilesTests(unittest.TestCase):
         quotas['cpuLimit']=True
         with self.assertRaises(ValueError):MODULE['configuration']('perception',quotas)
 
+    def test_only_reviewed_immutable_successor_versions(self):
+        quotas=dict(cpuLimit=1,ramLimit=1,storageLimit=1,stateLimit=1,tmpLimit=1,noFileLimit=1024,pidsLimit=64)
+        for version in ('0.1.0','0.1.1'):
+            item=MODULE['configuration']('perception',quotas,version)['items'][0]
+            self.assertEqual(item['version'],version);self.assertEqual(item['configuration']['allowedConnections'],[])
+        for version in ('latest','0.1.2','1.0.0',None,[]):
+            with self.assertRaises(ValueError):MODULE['configuration']('perception',quotas,version)
+
 
 if __name__=='__main__':unittest.main()

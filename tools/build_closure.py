@@ -206,6 +206,7 @@ def main():
     for name in ('clean-rootfs','models','assessment-library','output'):p.add_argument('--'+name,type=Path,required=True)
     p.add_argument('--pkgdata-root',type=Path);p.add_argument('--license-root',type=Path)
     p.add_argument('--source-revision')
+    p.add_argument('--service-version',choices=('0.1.0','0.1.1'),default='0.1.0')
     p.add_argument('--models-sha256',required=True);p.add_argument('--assessment-sha256',required=True)
     p.add_argument('--resume-owned',action='store_true');a=p.parse_args()
     require(os.uname().sysname=='Linux' and os.uname().machine=='aarch64','SSD_ARM64_BUILDER_REQUIRED')
@@ -249,8 +250,8 @@ def main():
             subprocess.run(['gcc','-O2','-Wall','-Wextra','-Werror','-fstack-protector-strong','-Wl,-z,relro,-z,now',
                 str(root/'apps/common/launcher.c'),'-o',str(executable)],env=dict(os.environ,TMPDIR=str(root.parent)),check=True,capture_output=True,timeout=30)
             closure.copy(executable,'usr/bin/vision-'+service,dict(kind='vision-service-launcher',sourceRevision=a.source_revision,source='apps/common/launcher.c'))
-            closure.emit('app/service-manifest.json',dict(schemaVersion=1,codename='vision-'+service,version='0.1.0',sourceRevision=a.source_revision,
-                upstream=lock['upstream']),dict(kind='generated-service-identity'))
+            closure.emit('app/service-manifest.json',dict(schemaVersion=1,codename='vision-'+service,version=a.service_version,sourceRevision=a.source_revision,
+                upstream=lock['upstream'],**(dict(processProfile='unix-only-seccomp-v1') if a.service_version=='0.1.1' else {})),dict(kind='generated-service-identity'))
             entry='''# SPDX-FileCopyrightText: 2026 maninblack
 # SPDX-License-Identifier: Apache-2.0
 import sys
@@ -277,7 +278,7 @@ raise SystemExit(main())
             closure.licenses(a.pkgdata_root,a.license_root,dict(archiveSha256=a.models_sha256,upstream=lock['upstream']) if service=='perception' else None)
         result=closure.finish();ceiling=512*1024**2 if service=='perception' else 256*1024**2
         require(result['bytes']<=ceiling and result['count']<10000,'CLOSURE_PROFILE_OVERFLOW')
-        result.update(service='vision-'+service,version='0.1.0',maximumExtractedBytes=ceiling,licenseNoticesIncluded=bool(a.pkgdata_root),
+        result.update(service='vision-'+service,version=a.service_version,maximumExtractedBytes=ceiling,licenseNoticesIncluded=bool(a.pkgdata_root),
             status='MEASURED_CLOSURE_NOT_SIGNABLE_WITHOUT_NATIVE_MEASUREMENTS_AND_DELIVERY_GATES')
         (a.output/service/'closure.json').write_text(json.dumps(result,indent=2)+'\n');outputs[service]={k:v for k,v in result.items() if k!='files'}
     # Model input remains a retained, hash-verified build input, not anonymous
